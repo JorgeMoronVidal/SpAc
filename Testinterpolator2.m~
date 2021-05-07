@@ -1,0 +1,20 @@
+function [err] = TestTriginterpolator(R,N,Neval,ff)
+theta = linspace(-2*pi,4*pi,4*N)';
+x = R*cos(theta);
+y = R*sin(theta);
+z = ff(x,y);
+theta_eval = linspace(0,2*pi,Neval)';
+xeval = R*cos(theta_eval);
+yeval = R*sin(theta_eval);
+zexact = ff(xeval,yeval);
+zeval = Triginterpolator(theta_eval,theta,z);
+figure
+hold on
+plot3(xeval,yeval,zexact);
+scatter3(xeval,yeval,zeval);
+err = abs(zeval-zexact);
+figure
+plot3(xeval,yeval,err);
+figure 
+plot(theta_eval,err);
+end
