@@ -1,2 +1,0 @@
-Process 3 used 2.961932  hours 
-Process 3 ended its work.

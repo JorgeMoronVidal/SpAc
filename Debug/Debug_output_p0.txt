@@ -1,4 +1,0 @@
-Processor 0 ended sending its contribution to G and B
-Process 0 is done solving nodes 
-Process 0 is done sending G 
-Process 0 used 2.961013  hours 
