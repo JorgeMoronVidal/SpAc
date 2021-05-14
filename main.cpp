@@ -23,5 +23,5 @@ int main(int argc, char *argv[]){
     bvp.Boundary_init(Rectangle2D, Stopping_c);
     bvp.BVP_init(2,scalar_init,scalarN_init,vector_init, matrix_init,string_init, Equation_theta_RBF);
     problem.Init(domain_parameters,7,48,bvp,0.005);
-    problem.Solve_Interfaces_Semideterministic(bvp,0.0001,5000);
+    problem.Solve_Interfaces_Semideterministic(bvp,0.0007,1000);
 }

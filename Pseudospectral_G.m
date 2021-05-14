@@ -1,9 +1,9 @@
-function G = Pseudospectral_G(point, N_fou, supp_theta, center, R)
+function G = Pseudospectral_G(points, N_fou, supp_theta, center, R)
         %p29.m (Modified by Jorge Moron) - Poisson eq. on unit circle with homogeneous or inhomogeneous BC's
 % M is the discretization in the angle t (Has to be even)
-M = 60;
+M = 96;
 %N is the discretization in the radious r (Has to be odd)
-N = 41;
+N = 61;
 % Laplacian in polar coordinates
 [D,r] = cheb(N, R); N2 = (N-1)/2; D2 = D^2;
 D1 = D2(1:N2+1,1:N2+1); D2 = D2(1:N2+1,N+1:-1:N2+2);
@@ -21,7 +21,7 @@ xx = xx(:); yy = yy(:);
 rr = rr(:); tt = tt(:);
 
 %b contains the index of the knots which support the stencil 
-b = find( rr == max(rr));
+b = find(rr == max(rr));
 L(b,:) = zeros(size(L(b,:))); L(b,b) = eye(size(L(b,b)));
 
 %Right-hand side of Lu - c(x)*u = f(x) 
@@ -37,9 +37,9 @@ rhs = zeros(size(tt));
 for i = 1:length(b)
        rhs(b(i)) = GBC(N_fou, supp_theta, xx(b(i)),yy(b(i)));
 end
-u = L\rhs; 
+u = L\rhs;
 uu = reshape(u,M,N2 + 1);
 xx = reshape(xx,M,N2+1) + center(1);
 yy = reshape(yy,M,N2+1) + center(2);
-G = griddata(xx,yy,uu,point(1),point(2));
+G = griddata(xx,yy,uu,points(:,1),points(:,2),'v4');
 return 

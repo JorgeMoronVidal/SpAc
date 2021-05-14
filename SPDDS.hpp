@@ -27,6 +27,7 @@ class SPDDS_solver{
     char debug_fname[256];
     //Vector of the centers considered
     std::vector<Center> centers;
+    std::map<std::vector<Center>::iterator, bool> center_solved;
     //Vector of the Knots and its support [0 index] integration centers from [1] in advance
     std::vector<std::vector<std::vector<Center>::iterator> > knots;
     double domain_parameters[4];
@@ -86,6 +87,18 @@ class SPDDS_solver{
             }
             N_knots = knot_centinel;
             knots.resize(N_knots);
+            char fname[256];
+            FILE *file;
+            for(std::vector<Center>::iterator center_it = centers.begin();
+                center_it != centers.end();
+                center_it ++){
+                center_solved[center_it] = false;
+                if((*center_it).Is_interior()){
+                    sprintf(fname,"Matlab_buffer/patch_%u%u.csv",(*center_it).index[0],(*center_it).index[1]);
+                    file = fopen(fname,"w");
+                    fclose(file);
+                }
+            }
             for(unsigned int knot_index = 0; knot_index < N_knots; knot_index ++){
                 for(std::vector<Center>::iterator center_it = centers.begin();
                 center_it != centers.end();
@@ -100,12 +113,18 @@ class SPDDS_solver{
                 center_it ++){
                     if((*center_it).Is_inside(aux_vec)){
                         knots[knot_index].push_back(center_it);
-                        //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
+                        if((*center_it).Is_interior()){
+                            sprintf(fname,"Matlab_buffer/patch_%u%u.csv",(*center_it).index[0],(*center_it).index[1]);
+                            file = fopen(fname,"a");
+                            fprintf(file,"%u,%f,%f\n",knot_index,aux_vec[0],aux_vec[1]);
+                            fclose(file);
+                            //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
+                        }
                     }
                 }
             }
             system("python3 center_plot.py");
-            }
+        }
     }
     void Send_G_B(void){
     work_control[0] = (int) G.size();
@@ -205,6 +224,7 @@ class SPDDS_solver{
     for(int i = 0; i < work_control[1]; i++) B[i] = B_aux[i];
     delete B_aux;
     for(int j = 0; j < work_control[1]; j++){
+        std::cout << j << std::endl;
         T_vec_B.push_back(T(B_i[j], 0, B[j]));
     }
 }
@@ -430,19 +450,19 @@ class SPDDS_solver{
         }
         printf("Process %d ended Solve_Interfaces_MC\n",myid);
     }
-    void Deterministic_Solve(Center supp_center, Center int_center, unsigned int knot_index,
-        std::vector<int> & G_j, std::vector<double> & G, double & B){
-        Eigen::VectorXd X0;
-        if(!supp_center.Get_knot_position(knot_index,X0)) printf("Something went wrong\n");
-        printf("Deterministically solving knot %u \n", knot_index);
-        B = 0.0;
-        G_j.clear();
-        G.clear();
+    void Deterministic_Solve(Center supp_center, Center int_center,
+        std::vector<int> & G_i_temp, std::vector<int> & G_j_temp, std::vector<double> & G_temp, 
+        std::vector<double> & B_temp, std::vector<int> & B_i_temp){
+        B_temp.clear();
+        B_i_temp.clear();
+        G_j_temp.clear();
+        G_i_temp.clear();
+        G_temp.clear();
         char fname[256];
         sprintf(fname,"Matlab_buffer/parameters_%d.csv",myid);
         FILE *data;
         data = fopen(fname,"w");
-        fprintf(data,"%f,%f,%f,%f,%f\n",X0(0),X0(1),
+        fprintf(data,"%u,%u,%f,%f,%f\n",int_center.index[0],int_center.index[1],
         int_center.Get_center_position()[0],int_center.Get_center_position()[1],
         int_center.Get_radius());
         fclose(data);
@@ -451,31 +471,64 @@ class SPDDS_solver{
         for(std::map<unsigned int, double>::iterator it = int_center.theta.begin();
             it != int_center.theta.end(); it ++){
             fprintf(data,"%u,%f\n",it->first, it->second);
-            G_j.push_back(it->first);
         }
         fclose(data);
         char system_order[512];
         sprintf(system_order,"/usr/local/MATLAB/R2020a/bin/matlab -batch \"cd(\'/home/jorge/Dropbox/DOC/SPDDS\'); Solve_Deterministic(%d);\"",myid);
         system(system_order);
         sprintf(fname,"Matlab_buffer/B_%d.txt",myid);
+        //sprintf(fname,"Matlab_buffer/B_0.txt");
         data = fopen(fname,"r");
         char *buffer = NULL;
         size_t line_buf_size;
         ssize_t line_size;
         line_size = getline(&buffer, &line_buf_size, data);
-        B = atof(buffer);
-        //printf("B = %f\n", B);
-        fclose(data);
-        sprintf(fname,"Matlab_buffer/G_%d.txt",myid);
-        data = fopen(fname,"r");
-        line_size = getline(&buffer, &line_buf_size, data);
         while (line_size >= 0){
-            G.push_back(atof(buffer));
+            B_temp.push_back(atof(buffer));
             //printf("G = %f\n", *(--G.end()));
             line_size = getline(&buffer, &line_buf_size, data);
         }
-        //std::cout << G.size() <<"\t"<< G_j.size()<< std::endl;
-        //getchar();
+        fclose(data);
+        sprintf(fname,"Matlab_buffer/Bi_%d.txt",myid);
+        //sprintf(fname,"Matlab_buffer/Bi_0.txt");
+        data = fopen(fname,"r");
+        line_size = getline(&buffer, &line_buf_size, data);
+        while (line_size >= 0){
+            B_i_temp.push_back(atoi(buffer));
+            //printf("G = %f\n", *(--G.end()));
+            line_size = getline(&buffer, &line_buf_size, data);
+        }
+        fclose(data);
+        sprintf(fname,"Matlab_buffer/Gi_%d.txt",myid);
+        //sprintf(fname,"Matlab_buffer/Gi_0.txt");
+        data = fopen(fname,"r");
+        line_size = getline(&buffer, &line_buf_size, data);
+        while (line_size >= 0){
+            G_i_temp.push_back(atoi(buffer));
+            //printf("G = %f\n", *(--G.end()));
+            line_size = getline(&buffer, &line_buf_size, data);
+        }
+        fclose(data);
+        sprintf(fname,"Matlab_buffer/Gj_%d.txt",myid);
+        //sprintf(fname,"Matlab_buffer/Gj_0.txt");
+        data = fopen(fname,"r");
+        line_size = getline(&buffer, &line_buf_size, data);
+        while (line_size >= 0){
+            G_j_temp.push_back(atoi(buffer));
+            //printf("G = %f\n", *(--G.end()));
+            line_size = getline(&buffer, &line_buf_size, data);
+        }
+        fclose(data);
+        sprintf(fname,"Matlab_buffer/G_%d.txt",myid);
+        //sprintf(fname,"Matlab_buffer/G_0.txt");
+        data = fopen(fname,"r");
+        line_size = getline(&buffer, &line_buf_size, data);
+        while (line_size >= 0){
+            G_temp.push_back(atof(buffer));
+            //printf("G = %f\n", *(--G.end()));
+            line_size = getline(&buffer, &line_buf_size, data);
+        }
+        fclose(data);
     };
     void Solve_Interfaces_Semideterministic(BVP bvp, double discretization, unsigned int N_tray){
         double start = MPI_Wtime();
@@ -489,14 +542,17 @@ class SPDDS_solver{
             fprintf(pFile,"G_i,G_j,var_G_ij\n");
             fclose(pFile);
             for(unsigned int knot_index = 0; knot_index < knots.size(); knot_index ++){
-                MPI_Recv(work_control, 2, MPI_INT, MPI_ANY_SOURCE, ASK_FOR_JOB, world, &status);
-                work_control[0] = 1;
-                work_control[1] = knot_index;
-                MPI_Send(work_control, 2, MPI_INT, status.MPI_SOURCE, REPLY_WORKER, world);
-                //printf("Knot %u is in center [%u %u]\n",knot_index,(*knots[knot_index][0]).index[0],(*knots[knot_index][0]).index[1]);
-                //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
-                (*knots[knot_index][0]).Send_To_Worker(status, world,0);
-                (*knots[knot_index][1]).Send_To_Worker(status, world,1);
+                if(!center_solved[knots[knot_index][1]]){
+                    MPI_Recv(work_control, 2, MPI_INT, MPI_ANY_SOURCE, ASK_FOR_JOB, world, &status);
+                    work_control[0] = 1;
+                    work_control[1] = knot_index;
+                    MPI_Send(work_control, 2, MPI_INT, status.MPI_SOURCE, REPLY_WORKER, world);
+                    //printf("Knot %u is in center [%u %u]\n",knot_index,(*knots[knot_index][0]).index[0],(*knots[knot_index][0]).index[1]);
+                    //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
+                    (*knots[knot_index][0]).Send_To_Worker(status, world,0);
+                    (*knots[knot_index][1]).Send_To_Worker(status, world,1);
+                    if((*knots[knot_index][1]).Is_interior())center_solved[knots[knot_index][1]] = true;
+                }
             }
             for(int worker_index = 0; worker_index < server; worker_index ++){
                 Receive_G_B();
@@ -513,8 +569,8 @@ class SPDDS_solver{
             Eigen::VectorXd X0;
             //G and B storage vectors for each node
             double B_temp,B_var_temp;
-            std::vector<double> G_temp, var_G_temp, bparams_vec(domain_parameters, domain_parameters + 4 * sizeof(domain_parameters[0]));
-            std::vector<int>  G_j_temp;
+            std::vector<double> Bv_temp, G_temp, var_G_temp, bparams_vec(domain_parameters, domain_parameters + 4 * sizeof(domain_parameters[0]));
+            std::vector<int>  G_i_temp, G_j_temp, B_i_temp;
             //Stencil
             GMSolver solver(bvp ,bparams_vec, discretization, (unsigned int) myid +1);
             work_control[0] = 1;
@@ -527,27 +583,41 @@ class SPDDS_solver{
                     supp_center.Recieve_From_Server(server,world,0,bvp);
                     int_center.Recieve_From_Server(server,world,1,bvp);
                     if(int_center.Is_interior()){
-                        Deterministic_Solve(supp_center,int_center,work_control[1],
-                        G_j_temp,G_temp,B_temp);
+                        Deterministic_Solve(supp_center,int_center, G_i_temp, G_j_temp, G_temp, Bv_temp, B_i_temp);
+                        for(unsigned int k = 0;k < G_temp.size(); k ++){
+                            G_i.push_back(G_i_temp[k]);
+                            G_j.push_back(G_j_temp[k]);
+                            G.push_back(G_temp[k]);
+                        }
+                        for(unsigned int k = 0;k < Bv_temp.size(); k ++){
+                            B_i.push_back(B_i_temp[k]);
+                            B.push_back(Bv_temp[k]);
+                        }
+                        Bv_temp.clear();
+                        B_i_temp.clear();
+                        G_j_temp.clear();
+                        G_i_temp.clear();
+                        G_temp.clear();
                     }else{
                         G_j_temp.resize(0);
                         G_temp.resize(0);
                         supp_center.Get_knot_position(work_control[1],X0);
-                        solver.Solve(supp_center,int_center,work_control[1],N_tray,discretization,
-                        G_j_temp,G_temp,var_G_temp,B_temp,B_var_temp);
-                    }
-                    B.push_back(B_temp);
-                    B_i.push_back((int)work_control[1]);
-                    var_B.push_back(B_var_temp);
-                    for(unsigned int k = 0;k < G_temp.size(); k ++){
-                        G_i.push_back((int)work_control[1]);
-                        G_j.push_back(G_j_temp[k]);
-                        G.push_back(G_temp[k]);
+                        //solver.Solve(supp_center,int_center,work_control[1],N_tray,discretization,
+                        //G_j_temp,G_temp,var_G_temp,B_temp,B_var_temp);
+                        //B.push_back(B_temp);
+                        B.push_back(bvp.u.Value(X0,0.0));
+                        B_i.push_back((int)work_control[1]);
+                        var_B.push_back(B_var_temp);
+                        for(unsigned int k = 0;k < G_temp.size(); k ++){
+                            G_i.push_back((int)work_control[1]);
+                            G_j.push_back(G_j_temp[k]);
+                            G.push_back(G_temp[k]);
+                        }
                     }
                     knot_end = MPI_Wtime();
                     pFile = fopen("Debug/Node_debug.csv","a");
                     fprintf(pFile,"%d,%f,%f,%f\n",work_control[1],
-                    solver.var_B,solver.APL,(knot_end-knot_start)/60);
+                    solver.var_B,solver.APL,(knot_end-knot_start));
                     fclose(pFile);
                     pFile = fopen("Debug/G_var.csv","a");
                     for(unsigned int i = 0; i < solver.var_G.size(); i++){
@@ -555,9 +625,9 @@ class SPDDS_solver{
                         G_j_temp[i],solver.var_G[i]);
                     }
                     fclose(pFile);
-                    pFile = fopen(debug_fname,"a");
                 }
             }
+            pFile = fopen(debug_fname,"a");
             fprintf(pFile,"Process %d is done solving nodes \n", myid);
             Send_G_B();
             fprintf(pFile,"Process %d is done sending G \n", myid);

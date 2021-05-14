@@ -6,3 +6,4 @@ BETA CODE por Parallel Semideterministic Probabilistic Domain
 Decomposition (Provisional name) based on MPI
 Proof of concept 
 Execution requires a MATLAB installation(Update the path in 
+SPDDS.hpp line 458
