@@ -4,6 +4,7 @@
 #include <eigen3/Eigen/IterativeLinearSolvers>
 #include "GMSolver.hpp"
 #include "BVP.hpp"
+#include <algorithm>
 #define ASK_FOR_JOB 100
 #define REPLY_WORKER 101
 #define TAG_Gi 120
@@ -62,8 +63,8 @@ class SPDDS_solver{
             dfile = fopen(debug_fname,"w");
             fclose(dfile);
         }
-    void Init(double global_parameters[4], unsigned int N_centers, unsigned int N_knots_per_circle, 
-        BVP bvp, double fac){
+    void Init(double global_parameters[4], unsigned int N_centers, double superposition_coefficent, 
+            unsigned int N_knots_per_circle, BVP bvp, double fac){
             double d,R;
             Center aux_center;
             unsigned int knot_centinel = 0;
@@ -72,8 +73,17 @@ class SPDDS_solver{
             domain_parameters[2] = global_parameters[2];
             domain_parameters[3] = global_parameters[3];
             d = (domain_parameters[2] - domain_parameters[0])/(N_centers-1);
-            R = d/sqrt(2.0);
+            if(superposition_coefficent > 2.0){
+                printf("FATAL WARNING: Superposition coefficent has to be equal or lower to 2.0\n");
+            }
+            if(superposition_coefficent < 1.0){
+                printf("FATAL WARNING: Superposition coefficent has to be equal or higher than 1.0\n");
+            }
+            R = superposition_coefficent*d/sqrt(2.0);
             if(myid == server){
+            system("rm Python/*");
+            system("rm Debug/*");
+            system("rm Matlab_buffer/*");
             Eigen::VectorXd aux_vec;
             aux_vec.resize(2);
             for(unsigned int h_index = 0; h_index <= N_centers-1; h_index++){
@@ -105,7 +115,7 @@ class SPDDS_solver{
                 center_it ++){
                     if((*center_it).Get_knot_position(knot_index,aux_vec)){
                         knots[knot_index].push_back(center_it);
-                        //printf("Knot %u is in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
+                        printf("Knot %u is in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
                     }
                 }
                 for(std::vector<Center>::iterator center_it = centers.begin();
@@ -118,8 +128,8 @@ class SPDDS_solver{
                             file = fopen(fname,"a");
                             fprintf(file,"%u,%f,%f\n",knot_index,aux_vec[0],aux_vec[1]);
                             fclose(file);
-                            //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
                         }
+                        printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
                     }
                 }
             }
@@ -240,6 +250,7 @@ class SPDDS_solver{
         G_sparse.setFromTriplets(T_vec_G.begin(),T_vec_G.end());
         T_vec_G.resize(0);
         G_sparse+=I_sparse;
+        for(unsigned int i = 0; i < knots.size(); i ++) G_sparse.coeffRef(i,i) =  std::max((double)(knots[i].size()-1),1.0);
         I_sparse.resize(0,0);
         FILE *ofile;
         ofile = fopen("Debug/G.csv","w");
@@ -277,7 +288,7 @@ class SPDDS_solver{
         sol = bvp.u.Value(Knot_Position,INFINITY);
         err = ud(i) - sol;
         rerr = fabs(err)/sol;
-        fprintf(ofile,"%u,%f,%f,%f,%f,%f,%f\n",i,Knot_Position[0],Knot_Position[1],
+        fprintf(ofile,"%u,%1.10f,%1.6f,%1.6f,%1.10f,%1.10f,%1.10f\n",i,Knot_Position[0],Knot_Position[1],
         sol,ud(i),err,rerr);
     }
     fclose(ofile);
@@ -542,16 +553,19 @@ class SPDDS_solver{
             fprintf(pFile,"G_i,G_j,var_G_ij\n");
             fclose(pFile);
             for(unsigned int knot_index = 0; knot_index < knots.size(); knot_index ++){
-                if(!center_solved[knots[knot_index][1]]){
-                    MPI_Recv(work_control, 2, MPI_INT, MPI_ANY_SOURCE, ASK_FOR_JOB, world, &status);
-                    work_control[0] = 1;
-                    work_control[1] = knot_index;
-                    MPI_Send(work_control, 2, MPI_INT, status.MPI_SOURCE, REPLY_WORKER, world);
-                    //printf("Knot %u is in center [%u %u]\n",knot_index,(*knots[knot_index][0]).index[0],(*knots[knot_index][0]).index[1]);
-                    //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
-                    (*knots[knot_index][0]).Send_To_Worker(status, world,0);
-                    (*knots[knot_index][1]).Send_To_Worker(status, world,1);
-                    if((*knots[knot_index][1]).Is_interior())center_solved[knots[knot_index][1]] = true;
+                for(unsigned int index_i_center = 1; index_i_center < knots[knot_index].size(); 
+                    index_i_center ++){
+                    if(!center_solved[knots[knot_index][index_i_center]]){
+                        MPI_Recv(work_control, 2, MPI_INT, MPI_ANY_SOURCE, ASK_FOR_JOB, world, &status);
+                        work_control[0] = 1;
+                        work_control[1] = knot_index;
+                        MPI_Send(work_control, 2, MPI_INT, status.MPI_SOURCE, REPLY_WORKER, world);
+                        //printf("Knot %u is in center [%u %u]\n",knot_index,(*knots[knot_index][0]).index[0],(*knots[knot_index][0]).index[1]);
+                        //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
+                        (*knots[knot_index][0]).Send_To_Worker(status, world,0);
+                        (*knots[knot_index][index_i_center]).Send_To_Worker(status, world,1);
+                        if((*knots[knot_index][index_i_center]).Is_interior())center_solved[knots[knot_index][index_i_center]] = true;
+                    }
                 }
             }
             for(int worker_index = 0; worker_index < server; worker_index ++){

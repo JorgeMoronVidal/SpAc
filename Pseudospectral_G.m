@@ -1,9 +1,9 @@
 function G = Pseudospectral_G(points, N_fou, supp_theta, center, R)
         %p29.m (Modified by Jorge Moron) - Poisson eq. on unit circle with homogeneous or inhomogeneous BC's
 % M is the discretization in the angle t (Has to be even)
-M = 96;
+M = 48;
 %N is the discretization in the radious r (Has to be odd)
-N = 61;
+N = 31;
 % Laplacian in polar coordinates
 [D,r] = cheb(N, R); N2 = (N-1)/2; D2 = D^2;
 D1 = D2(1:N2+1,1:N2+1); D2 = D2(1:N2+1,N+1:-1:N2+2);
@@ -39,7 +39,13 @@ for i = 1:length(b)
 end
 u = L\rhs;
 uu = reshape(u,M,N2 + 1);
-xx = reshape(xx,M,N2+1) + center(1);
-yy = reshape(yy,M,N2+1) + center(2);
-G = griddata(xx,yy,uu,points(:,1),points(:,2),'v4');
+%xx = reshape(xx,M,N2+1) + center(1);
+%yy = reshape(yy,M,N2+1) + center(2);
+%G = griddata(xx,yy,uu,points(:,1),points(:,2),'v4');
+[rr,tt] = meshgrid(r(1:N2+1),t([1:M]));
+theta_i = atan2(points(:,2)-center(2),points(:,1)-center(1));
+r_i = sqrt((points(:,2)-center(2)).^2 + (points(:,1)-center(1)).^2);
+change = find(theta_i <= 0);
+theta_i(change) = 2*pi + theta_i(change);
+G = Interpolant_circle_u(rr,tt,uu,r_i,theta_i);
 return 

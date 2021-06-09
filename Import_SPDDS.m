@@ -11,7 +11,7 @@ function [PDDS_sol, Analytic_sol, error, G,G_sparsity, G_cond, B, B_estimated, x
     G_sparsity =  size(G_ij);
     G_sparsity = G_sparsity(1)/(max(G_i)^2);
     G_sparsity = sprintf('%.2f',G_sparsity);
-    G_cond = sprintf('%.3f',cond(full(G)));
+    G_cond = 0;
     %G_cond = sprintf('%.3f',condest(G));
     clear G_i; clear G_j; clear G_ij;
     B_route = append(experiment, 'Debug/B.csv');
@@ -38,7 +38,7 @@ function [PDDS_sol, Analytic_sol, error, G,G_sparsity, G_cond, B, B_estimated, x
     error = sol.data(:,6);
     clear sol;
     clear sol_route;
-    B_estimated = G*Analytic_sol;
+    B_estimated = Analytic_sol;
     %params = [min(x) min(y) max(x) max(y)];
     %distances = distance(params,x,y);
 return

@@ -28,7 +28,7 @@ LFLAGS = -L/usr/local/lib
 LIBS = -lgsl -lgslcblas -lm 
 
 # define the source files, default here is main.cpp
-SRCS = main.cpp BVP.cpp FKACSolver.cpp rbfunction.cpp matrixfunction.cpp vectorfunction.cpp scalarfunction.cpp scalarfunctionN.cpp boundary.cpp lookuptable.cpp
+SRCS = main_ReadAndSolve.cpp BVP.cpp FKACSolver.cpp rbfunction.cpp matrixfunction.cpp vectorfunction.cpp scalarfunction.cpp scalarfunctionN.cpp boundary.cpp lookuptable.cpp
 
 # define the object files 
 #

@@ -12,7 +12,7 @@ function Solve_Deterministic(process)
     B = Pseudospectral_B(points, center, R);
     file_output_G = append(append('Matlab_buffer/G_',string(process)),'.txt');
     fileID = fopen(file_output_G,'w');
-    fprintf(fileID,'%1.8f\n',G(:));
+    fprintf(fileID,'%1.10f\n',G(:));
     fclose(fileID);
     file_output_G = append(append('Matlab_buffer/Gi_',string(process)),'.txt');
     fileID = fopen(file_output_G,'w');
@@ -24,7 +24,7 @@ function Solve_Deterministic(process)
     fclose(fileID);
     file_output_B = append(append('Matlab_buffer/B_',string(process)),'.txt');
     fileID = fopen(file_output_B,'w');
-    fprintf(fileID,'%1.8f\n',B);
+    fprintf(fileID,'%1.10f\n',B);
     file_output_B = append(append('Matlab_buffer/Bi_',string(process)),'.txt');
     fileID = fopen(file_output_B,'w');
     fprintf(fileID,'%d\n',index_i);

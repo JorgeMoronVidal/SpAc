@@ -1,9 +1,9 @@
 %p29.m (Modified by Jorge Moron) - Poisson eq. on unit circle with homogeneous or inhomogeneous BC's
 radius = 0.7071;
 % M is the discretization in the angle t (Has to be even)
-M = 144;
+M = 60;
 %N is the discretization in the radious r (Has to be odd)
-N = 101;
+N = 61;
 % Laplacian in polar coordinates
 [D,r] = cheb(N,radius); N2 = (N-1)/2; D2 = D^2;
 D1 = D2(1:N2+1,1:N2+1); D2 = D2(1:N2+1,N+1:-1:N2+2);
@@ -41,9 +41,11 @@ u = L\rhs;
 uu = reshape(u,M,N2 + 1);
 [rr,tt] = meshgrid(r(1:N2+1),t([1:M]));
 [xx,yy] = pol2cart(tt,rr);
-[ttt,rrr] = meshgrid(0:.01:2*pi,0:.01:radius);
-[xxx,yyy] = pol2cart(ttt,rrr);
-uuu = griddata(xx,yy,uu,xxx,yyy,'v4');
+uu(:,1) = Poisson3_u(xx(:,1),yy(:,1));
+[ttt,rrr] = meshgrid(0:.15:2*pi,0:.05:radius);
+[xxx,yyy] = pol2cart(tt,rr);
+%uuu = griddata(xx,yy,uu,xxx,yyy,'v4');
+uuu = uu;
 clf, subplot(1,3,1)
 hold on
 mesh(xx,yy,uu), %colormap([0 0 0])
