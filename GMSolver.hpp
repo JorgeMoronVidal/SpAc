@@ -136,7 +136,7 @@ class GMSolver: public EMFKAC {
                 for(unsigned int i = 0; i < 10; i++) sums[i] = 0.0;
                 Eigen::VectorXd X0;
                 if(!supp_center.Get_knot_position(knot_index,X0)) printf("Something went wrong\n");
-                supp_center.Print();
+                //supp_center.Print();
                 increment.resize(X0.size());
                 X.resize(X0.size());
                 E_P.resize(X0.size());

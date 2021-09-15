@@ -4,8 +4,8 @@
 int main(int argc, char *argv[]){
     SpAc_solver problem(argc,argv);
     double domain_parameters[4];
-    domain_parameters[0] = domain_parameters[1] = -2;
-    domain_parameters[2] = domain_parameters[3] = 2;
+    domain_parameters[0] = domain_parameters[1] = -3;
+    domain_parameters[2] = domain_parameters[3] = 3;
     BVP bvp;
     std::map<std::string, pfscalar> scalar_init;
     std::map<std::string, pfvector> vector_init;
@@ -22,7 +22,7 @@ int main(int argc, char *argv[]){
     matrix_init["sigma"] = Equation_sigma;
     bvp.Boundary_init(Rectangle2D, Stopping_c);
     bvp.BVP_init(2,scalar_init,scalarN_init,vector_init, matrix_init,string_init, Equation_theta_RBF);
-    problem.Init(domain_parameters,5,1.2,41,bvp,0.005);
-    //problem.Init(domain_parameters,7,1.0,48,bvp,0.005);
-    problem.Solve_Interfaces_Semideterministic(bvp,0.0007,10000);
+    //problem.Init(domain_parameters,domain_parameters,3,1.2,41,41,bvp,0.005);
+    problem.Init(domain_parameters,7,1.2,0.12831,44,bvp,0.005);
+    problem.Solve_Interfaces_Semideterministic(bvp,0.0007,1000);
 }

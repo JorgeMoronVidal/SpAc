@@ -22,7 +22,7 @@
 #define INT_CIRCLE_DOUBLES 213
 #define INT_CIRCLE_UINTS 214
 #define INT_CIRCLE_INTS 215
-using namespace std::complex_literals;
+//using namespace std::complex_literals;
 inline double Atan0(Eigen::VectorXd point){
     //Returns the value of atan2 but the discontinuity is in 0 
     double aux;
@@ -34,7 +34,7 @@ inline double Atan90(Eigen::VectorXd point){
     //Returns the value of atan2 but in the interval[0,2\pi)
     double aux;
     aux = atan2(point(1),point(0));
-    if(aux >= 0.5*M_PI) return - 2.0*M_PI + aux;
+    if(aux <= 0.5*M_PI) return 2.0*M_PI + aux;
     return aux;
     
 }
@@ -88,7 +88,7 @@ class Center{
         index[0] = index[1] = 0;
         N_knots[0] = 0;
     }
-    unsigned int Init_Square(double R, BVP bvp, double domain_parameters[4], double fac,
+    unsigned int Init_Square(double R, BVP bvp, double domain_parameters[4], double theta_0, double fac,
         Eigen::VectorXd center, unsigned int index_x, unsigned int index_y, unsigned int number_knots, 
         unsigned int first_knot, unsigned int max_v, unsigned int max_h){
         parameters[0] = R; parameters[1] = center[0]; parameters[2] = center[1];
@@ -111,7 +111,9 @@ class Center{
                 aux_vector(1) = sqrt(R*R - aux_vector(0)*aux_vector(0));
                 last_angle = Atan180(aux_vector);
                 N_knots[0] = (int)(number_knots*fabs(last_angle-first_angle)/(2*M_PI));
-                angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                //N_knots[0] = number_knots;
+                angular_increment = 2*(M_PI)/(N_knots[1]);
                 interior = -3;
             } else {
                 if(index_y == max_v){
@@ -122,7 +124,9 @@ class Center{
                     aux_vector(0) = sqrt(R*R - aux_vector(1)*aux_vector(1));
                     last_angle = Atan180(aux_vector);
                     N_knots[0] = (int)(number_knots*fabs(last_angle-first_angle)/(2*M_PI));
-                    angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                    //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                    //N_knots[0] = number_knots;
+                    angular_increment = 2*(M_PI)/(N_knots[1]);
                     interior = -3;
                     } else {
                         aux_vector(0) = domain_parameters[0] - parameters[1];
@@ -131,7 +135,9 @@ class Center{
                         aux_vector(1) = sqrt(R*R - aux_vector(0)*aux_vector(0));
                         last_angle = Atan180(aux_vector);
                         N_knots[0] = (int)(number_knots*fabs(last_angle-first_angle)/(2*M_PI));
-                        angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                        //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                        //N_knots[0] = number_knots;
+                        angular_increment = 2*(M_PI)/(N_knots[1]);
                         interior = -3;
                     }
                 }
@@ -145,7 +151,9 @@ class Center{
                     aux_vector(0) = -sqrt(R*R - aux_vector(1)*aux_vector(1));
                     last_angle = Atan0(aux_vector);
                     N_knots[0] = (int)(number_knots*fabs(last_angle-first_angle)/(2*M_PI));
-                    angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                    //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                    //N_knots[0] = number_knots;
+                    angular_increment = 2*(M_PI)/(N_knots[1]);
                     interior = -1;
                 } else {
                     if(index_y == max_v){
@@ -156,7 +164,9 @@ class Center{
                         aux_vector(1) = -sqrt(R*R - aux_vector(0)*aux_vector(0));
                         last_angle = Atan0(aux_vector);
                         N_knots[0] = (int)(number_knots*fabs(last_angle-first_angle)/(2*M_PI));
-                        angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                        //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                        //N_knots[0] = number_knots;
+                        angular_increment = 2*(M_PI)/(N_knots[1]);
                         interior = -1;
                     } else {
                         aux_vector(0) = domain_parameters[3] - parameters[1];
@@ -165,7 +175,9 @@ class Center{
                         aux_vector(1) = -sqrt(R*R - aux_vector(0)*aux_vector(0));
                         last_angle = Atan0(aux_vector);
                         N_knots[0] = (int)(number_knots*fabs(last_angle-first_angle)/(2*M_PI));
-                        angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                        //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                        //N_knots[0] = number_knots;
+                        angular_increment = 2*(M_PI)/(N_knots[1]);
                         interior = -1;
                     }
                 }
@@ -178,39 +190,74 @@ class Center{
                     aux_vector(0) = -sqrt(R*R - aux_vector(1)*aux_vector(1));
                     last_angle = Atan270(aux_vector);
                     N_knots[0] = (int)(number_knots*fabs(last_angle-first_angle)/(2*M_PI));
-                    angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                    //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                    //N_knots[0] = number_knots;
+                    angular_increment = 2*(M_PI)/(N_knots[1]);
                     interior = -4;
                 } else {
                     if(index_y == max_v){
                         aux_vector(1) = domain_parameters[3] - parameters[2];
-                        aux_vector(0) = +sqrt(R*R - aux_vector(1)*aux_vector(1));
-                        first_angle = Atan90(aux_vector);
                         aux_vector(0) = -sqrt(R*R - aux_vector(1)*aux_vector(1));
+                        first_angle = Atan90(aux_vector);
+                        aux_vector(0) = +sqrt(R*R - aux_vector(1)*aux_vector(1));
                         last_angle = Atan90(aux_vector);
                         N_knots[0] = (int)(number_knots*fabs(last_angle-first_angle)/(2*M_PI));
-                        angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                        //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
+                        //N_knots[0] = number_knots;
+                        angular_increment = 2*(M_PI)/(N_knots[1]);
                         interior = -2;
+                        printf("first angle = %f last angle = %f angular increment = %f\n",
+                        first_angle,last_angle,angular_increment);
                     } else {
                         N_knots[0] = number_knots;
-                        //We make sure N_knots[0] is odd
-                        if(N_knots[0]%2 == 0) 
-                        {   N_knots[0] ++;
-                            N_knots[1] ++;
-                        }
                         angular_increment = 2*(M_PI)/(N_knots[0]);
-                        first_angle = 0.0;
+                        printf("Angular increment %f\n",angular_increment);
+                        first_angle = theta_0;
                         interior = 1;
                     } 
                 }
             }
         }
-        printf("index = [%u %u] first a = %f last a = %f N_knots[0] = %d\n",
-            index_x, index_y, first_angle, last_angle, N_knots[0]);
+        //printf("index = [%u %u] first a = %f last a = %f N_knots[0] = %d\n",
+            //index_x, index_y, first_angle, last_angle, N_knots[0]);
         unsigned int aux_index = first_knot;
         center_vec = center;
         aux_vector.resize(2);
-        for(unsigned int i = 0; i < N_knots[0]; i++){
-            theta[aux_index] = first_angle + angular_increment*i;
+        if(interior > 0){
+            for(unsigned int i = 0; i < N_knots[0]; i++){
+                theta[aux_index] = first_angle + angular_increment*i;
+                //printf("%f \n",N_knots[0]*360/(2*M_PI));
+                GN[aux_index] = 0.0;
+                GGN[aux_index] = 0.0;
+                aux_vector[0] =R* cos(theta[aux_index]);
+                aux_vector[1] =R* sin(theta[aux_index]);
+                knot[aux_index] = center + aux_vector;
+                aux_index ++;
+            }
+        }else{
+             double aux_theta;
+             theta[aux_index] = first_angle;
+             //printf("%f \n",N_knots[0]*360/(2*M_PI));
+             GN[aux_index] = 0.0;
+             GGN[aux_index] = 0.0;
+             aux_vector[0] =R* cos(theta[aux_index]);
+             aux_vector[1] =R* sin(theta[aux_index]);
+             knot[aux_index] = center + aux_vector;
+             aux_index ++;
+            for(unsigned int i = 0; i < N_knots[0] + 2; i++){
+                aux_theta = first_angle + theta_0 + angular_increment*i;
+                if(aux_theta > first_angle + 0.5* angular_increment && aux_theta < last_angle - 0.5* angular_increment){
+                    theta[aux_index] = aux_theta;
+                    //printf("%f \n",N_knots[0]*360/(2*M_PI));
+                    GN[aux_index] = 0.0;
+                    GGN[aux_index] = 0.0;
+                    aux_vector[0] =R* cos(theta[aux_index]);
+                    aux_vector[1] =R* sin(theta[aux_index]);
+                    knot[aux_index] = center + aux_vector;
+                    aux_index ++;
+                }
+            }
+            theta[aux_index] = last_angle;
             //printf("%f \n",N_knots[0]*360/(2*M_PI));
             GN[aux_index] = 0.0;
             GGN[aux_index] = 0.0;
@@ -219,6 +266,7 @@ class Center{
             knot[aux_index] = center + aux_vector;
             aux_index ++;
         }
+        N_knots[0] = knot.size();
         BN = 0.0;
         BBN = 0.0;
         unsigned int n;
@@ -267,7 +315,7 @@ class Center{
                     cond = Psi.norm()*iPsi.norm();
                     if(cond < 1E+8) c2 += 0.05;
                     if(cond > 1E+10) c2 = c2 * 0.5;
-                    std::cout << c2 << std::endl;
+                    //std::cout << c2 << std::endl;
                 }else{
                     printf("FATAL ERROR: Psi Matrix is not invertible.\n");
                     iPsi = Psi*0.0;
@@ -275,8 +323,7 @@ class Center{
                     cond = 1E+20;
                 }
             }while((cond < 1E+8) || (cond > 1E+10));
-            printf("Condition number %f error %f \n",Psi.norm()*iPsi.norm(), 
-                    (Psi*iPsi-I).norm());
+            printf("Condition number %f error %f \n",Psi.norm()*iPsi.norm(), (Psi*iPsi-I).norm());
         }
         return aux_index;
     }
@@ -433,7 +480,7 @@ class Center{
     }
     void Print(void){
         char fname[256];
-        sprintf(fname,"Python/center_plot_%u%u.csv",index[0],index[1]);
+        sprintf(fname,"Python/center_plot_%u_%u.csv",index[0],index[1]);
         FILE *pf;
         pf = fopen(fname,"w");
         fprintf(pf,"x,y,i\n");

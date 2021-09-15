@@ -11,10 +11,10 @@ for file in os.listdir(indir):
     y = table['y']
     label = table['i']
     ax.plot(table['x'], table['y'],'-o')
-    for i, txt in enumerate(label):
-        ax.annotate(txt, (x[i], y[i]))
+    #for i, txt in enumerate(label):
+        #ax.annotate(txt, (x[i], y[i]))
 ax.set_aspect('equal', 'box')
-x_dom = np.array([-1, -1, 1, 1, -1]) * 2
-y_dom = np.array([-1, 1, 1, -1, -1]) * 2
+x_dom = np.array([-1, -1, 1, 1, -1]) * 3
+y_dom = np.array([-1, 1, 1, -1, -1]) * 3
 ax.plot(x_dom, y_dom)
 plt.show()

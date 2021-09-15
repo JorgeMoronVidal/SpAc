@@ -1,9 +1,9 @@
 function G = Pseudospectral_G(points, N_fou, supp_theta, center, R)
         %p29.m (Modified by Jorge Moron) - Poisson eq. on unit circle with homogeneous or inhomogeneous BC's
 % M is the discretization in the angle t (Has to be even)
-M = 48;
+M = 72;
 %N is the discretization in the radious r (Has to be odd)
-N = 31;
+N = 45;
 % Laplacian in polar coordinates
 [D,r] = cheb(N, R); N2 = (N-1)/2; D2 = D^2;
 D1 = D2(1:N2+1,1:N2+1); D2 = D2(1:N2+1,N+1:-1:N2+2);

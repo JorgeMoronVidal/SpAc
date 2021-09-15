@@ -15,7 +15,7 @@
 #define TAG_Bval 131
 #define TAG_Bvar 122
 #define K_EXCESS 1.9f
-//#define AVERAGED
+#define AVERAGED
 typedef Eigen::Triplet<double,int> T;
 class SpAc_solver{
     private:
@@ -65,17 +65,18 @@ class SpAc_solver{
             dfile = fopen(debug_fname,"w");
             fclose(dfile);
         }
-    void Init(double global_parameters[4], unsigned int N_centers, double superposition_coefficent, 
-            unsigned int N_knots_per_circle, BVP bvp, double fac){
-            double d,R, disp;
+     void Init(double global_parameters[4], unsigned int N_centers, double superposition_coefficent, 
+            double theta_0, unsigned int N_knots_per_circle, BVP bvp, double fac){
+            double d,R;
             Center aux_center;
             unsigned int knot_centinel = 0;
             domain_parameters[0] = global_parameters[0];
             domain_parameters[1] = global_parameters[1];
             domain_parameters[2] = global_parameters[2];
             domain_parameters[3] = global_parameters[3];
-            disp = (domain_parameters[2] - domain_parameters[0])*superposition_coefficent/(2*superposition_coefficent + 2*K_EXCESS*(N_centers-1));
-            d = (domain_parameters[2] - domain_parameters[0] - 2*disp)/(N_centers -1);
+            //disp = (domain_parameters[2] - domain_parameters[0])*superposition_coefficent/(2*superposition_coefficent + 2*K_EXCESS*(N_centers-1));
+            //d = (domain_parameters[2] - domain_parameters[0] - 2*disp)/(N_centers -1);
+            d = (domain_parameters[2] - domain_parameters[0])/(N_centers -1);
             if(superposition_coefficent > 2.0){
                 printf("FATAL WARNING: Superposition coefficent has to be equal or lower to 2.0\n");
             }
@@ -92,8 +93,8 @@ class SpAc_solver{
             //Initialization of all the centers
             for(unsigned int h_index = 0; h_index <= N_centers-1; h_index++){
                 for(unsigned int v_index = 0; v_index <= N_centers-1; v_index++){
-                    aux_vec[0] = global_parameters[0] + disp + h_index*d; aux_vec[1] = global_parameters[1] + disp + v_index*d;
-                    knot_centinel = aux_center.Init_Square(R,bvp, domain_parameters,fac,aux_vec,h_index,v_index,N_knots_per_circle,knot_centinel,N_centers-1,N_centers-1);
+                    aux_vec[0] = global_parameters[0] + h_index*d; aux_vec[1] = global_parameters[1] + v_index*d;
+                    knot_centinel = aux_center.Init_Square(R,bvp, domain_parameters, theta_0, fac,aux_vec,h_index,v_index,N_knots_per_circle,knot_centinel,N_centers-1,N_centers-1);
                     centers.push_back(aux_center);
                     //printf("%u %u\n",h_index,v_index);
                     aux_center.Print();
@@ -109,7 +110,7 @@ class SpAc_solver{
                 center_it ++){
                 center_solved[center_it] = false;
                 if((*center_it).Is_interior()){
-                    sprintf(fname,"Matlab_buffer/patch_%u%u.csv",(*center_it).index[0],(*center_it).index[1]);
+                    sprintf(fname,"Matlab_buffer/patch_%u_%u.csv",(*center_it).index[0],(*center_it).index[1]);
                     file = fopen(fname,"w");
                     fclose(file);
                 }
@@ -122,7 +123,7 @@ class SpAc_solver{
                 center_it ++){
                     if((*center_it).Get_knot_position(knot_index,aux_vec)){
                         knots[knot_index].push_back(center_it);
-                        printf("Knot %u is in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
+                        //printf("Knot %u is in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
                     }
                 }
                 //The center or centers in whic each knot is integrated are identified and stored the the latter elements 
@@ -133,12 +134,12 @@ class SpAc_solver{
                     if((*center_it).Is_inside(aux_vec)){
                         knots[knot_index].push_back(center_it);
                         if((*center_it).Is_interior()){
-                            sprintf(fname,"Matlab_buffer/patch_%u%u.csv",(*center_it).index[0],(*center_it).index[1]);
+                            sprintf(fname,"Matlab_buffer/patch_%u_%u.csv",(*center_it).index[0],(*center_it).index[1]);
                             file = fopen(fname,"a");
                             fprintf(file,"%u,%f,%f\n",knot_index,aux_vec[0],aux_vec[1]);
                             fclose(file);
                         }
-                        printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
+                        //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
                     }
                 }
                 #endif
@@ -149,34 +150,148 @@ class SpAc_solver{
                 center_it != centers.end();
                 center_it ++){
                     if((*center_it).Is_inside(aux_vec)){
-                        if((*center_it).Boundary_Distance(aux_vec) < d_centinel){
-                            d_centinel = (*center_it).Boundary_Distance(aux_vec);
+                        if(((*center_it).Boundary_Distance(aux_vec) - (*center_it).Is_interior()*R) < d_centinel){
+                            d_centinel = (*center_it).Boundary_Distance(aux_vec)  + (*center_it).Is_interior()*R;
                             knots[knot_index][1] = center_it;
                         }
                     }
                 }
                 if((*knots[knot_index][1]).Is_interior()){
-                    sprintf(fname,"Matlab_buffer/patch_%u%u.csv",(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
+                    sprintf(fname,"Matlab_buffer/patch_%u_%u.csv",(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
                     file = fopen(fname,"a");
                     fprintf(file,"%u,%f,%f\n",knot_index,aux_vec[0],aux_vec[1]);
                     fclose(file);
                 }
-                printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
+                //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
                 #endif
             }
-            system("python3 center_plot.py");
+            //system("python3 center_plot.py");
+        }
+    }
+    void Init(double global_parameters[4], double external_parameters[4],
+            double theta_0, unsigned int N_centers, double superposition_coefficent, 
+            unsigned int N_knots_interior, unsigned int N_knots_exterior,
+            BVP bvp, double fac){
+            double d_int,d_ext,R_int,R_ext, disp;
+            Center aux_center;
+            unsigned int knot_centinel = 0;
+            domain_parameters[0] = global_parameters[0];
+            domain_parameters[1] = global_parameters[1];
+            domain_parameters[2] = global_parameters[2];
+            domain_parameters[3] = global_parameters[3];
+            R_int = 0.95*(domain_parameters[2] - domain_parameters[0])/(2 + sqrt(2)*(N_centers-3)/superposition_coefficent);
+            d_int = R_int*sqrt(2.0)/superposition_coefficent;
+            disp = 0.5*((domain_parameters[2] - domain_parameters[0]) - (2*R_int + d_int * (N_centers-3)));
+            d_ext = (external_parameters[2] - external_parameters[0])/(N_centers-1);
+            R_ext = d_ext*superposition_coefficent/sqrt(2);
+            if(myid == server){
+            system("rm Python/*");
+            system("rm Debug/*");
+            system("rm Matlab_buffer/*");
+            Eigen::VectorXd aux_vec;
+            aux_vec.resize(2);
+            //Initialization of all the centers
+            for(unsigned int h_index = 0; h_index <= N_centers-1; h_index++){
+                for(unsigned int v_index = 0; v_index <= N_centers-1; v_index++){
+                    if((h_index != 0) && (v_index != 0) && (h_index != N_centers-1) && (v_index != N_centers-1)){
+                        aux_vec[0] = global_parameters[0] + disp + R_int + (h_index-1)*d_int; aux_vec[1] = global_parameters[1] + disp + R_int + (v_index-1)*d_int;
+                        knot_centinel = aux_center.Init_Square(R_int,bvp, domain_parameters,theta_0,fac,aux_vec,h_index,v_index,N_knots_interior,knot_centinel,N_centers-1,N_centers-1);
+                        centers.push_back(aux_center);
+                        //printf("%u %u\n",h_index,v_index);
+                        //printf("Center = [%f %f] d = %f R = %f disp = %f\n",
+                        //aux_vec[0],aux_vec[1], d_int, R_int, disp);
+                        //aux_center.Print();
+                    }else{
+                        aux_vec[0] = external_parameters[0] +  h_index*d_ext; aux_vec[1] = external_parameters[1] + v_index*d_ext;
+                        knot_centinel = aux_center.Init_Square(R_ext,bvp, domain_parameters,theta_0,fac,aux_vec,h_index,v_index,N_knots_interior,knot_centinel,N_centers-1,N_centers-1);
+                        centers.push_back(aux_center);
+                        //printf("%u %u\n",h_index,v_index);
+                        //printf("Center = [%f %f] d = %f R = %f\n",
+                        //aux_vec[0],aux_vec[1], d_ext, R_ext);
+                        //aux_center.Print();
+                    }
+                }
+            }
+            N_knots = knot_centinel;
+            knots.resize(N_knots);
+            char fname[256];
+            FILE *file;
+            //Each interior center has a file dedicated to it
+            for(std::vector<Center>::iterator center_it = centers.begin();
+                center_it != centers.end();
+                center_it ++){
+                center_solved[center_it] = false;
+                if((*center_it).Is_interior()){
+                    sprintf(fname,"Matlab_buffer/patch_%u_%u.csv",(*center_it).index[0],(*center_it).index[1]);
+                    file = fopen(fname,"w");
+                    fclose(file);
+                }
+            }
+            double d_centinel;
+            //The center to which each knot belongs is identified and stored in the first element of knots
+            for(unsigned int knot_index = 0; knot_index < N_knots; knot_index ++){
+                for(std::vector<Center>::iterator center_it = centers.begin();
+                center_it != centers.end();
+                center_it ++){
+                    if((*center_it).Get_knot_position(knot_index,aux_vec)){
+                        knots[knot_index].push_back(center_it);
+                        //printf("Knot %u is in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
+                    }
+                }
+                //The center or centers in whic each knot is integrated are identified and stored the the latter elements 
+                #ifdef AVERAGED
+                for(std::vector<Center>::iterator center_it = centers.begin();
+                center_it != centers.end();
+                center_it ++){
+                    if((*center_it).Is_inside(aux_vec)){
+                        knots[knot_index].push_back(center_it);
+                        if((*center_it).Is_interior()){
+                            sprintf(fname,"Matlab_buffer/patch_%u_%u.csv",(*center_it).index[0],(*center_it).index[1]);
+                            file = fopen(fname,"a");
+                            fprintf(file,"%u,%f,%f\n",knot_index,aux_vec[0],aux_vec[1]);
+                            fclose(file);
+                        }
+                        //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*center_it).index[0],(*center_it).index[1]);
+                    }
+                }
+                #endif
+                #ifndef AVERAGED
+                knots[knot_index].push_back(centers.begin());
+                d_centinel = 0.0;
+                for(std::vector<Center>::iterator center_it = centers.begin();
+                center_it != centers.end();
+                center_it ++){
+                    if((*center_it).Is_inside(aux_vec)){
+                        if(((*center_it).Boundary_Distance(aux_vec) - (*center_it).Is_interior()*R_int) < d_centinel){
+                            d_centinel = (*center_it).Boundary_Distance(aux_vec)  + (*center_it).Is_interior()*R_int;
+                            knots[knot_index][1] = center_it;
+                        }
+                    }
+                }
+                if((*knots[knot_index][1]).Is_interior()){
+                    sprintf(fname,"Matlab_buffer/patch_%u_%u.csv",(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
+                    file = fopen(fname,"a");
+                    fprintf(file,"%u,%f,%f\n",knot_index,aux_vec[0],aux_vec[1]);
+                    fclose(file);
+                }
+                //printf("Knot %u is integrated in center [%u %u]\n",knot_index,(*knots[knot_index][1]).index[0],(*knots[knot_index][1]).index[1]);
+                #endif
+            }
+            //system("python3 center_plot.py");
         }
     }
     void Send_G_B(void){
     work_control[0] = (int) G.size();
     work_control[1] = (int) B.size();
     MPI_Send(work_control, 2, MPI_INT, server, ASK_FOR_JOB, world);
+    printf("Work control sent from %d\n Work control =  [%d %d]\n",myid, work_control[0], work_control[1]);
     //G_i is sent
     int *G_i_aux;
     G_i_aux = new int[work_control[0]];
     for(int i = 0; i < work_control[0]; i++) G_i_aux[i] = G_i[i];
     G_i.resize(0);
     MPI_Send(G_i_aux, work_control[0], MPI_INT, server, TAG_Gi, world);
+    printf("G_i sent from %d \n",myid);
     delete G_i_aux;
     //G_j is sent
     int *G_j_aux;
@@ -184,6 +299,7 @@ class SpAc_solver{
     for(int i = 0; i < work_control[0]; i++) G_j_aux[i] = G_j[i];
     G_j.resize(0);
     MPI_Send(G_j_aux, work_control[0], MPI_INT, server, TAG_Gj, world);
+    printf("G_j sent from %d \n",myid);
     delete G_j_aux;
     //G_val is sent
     double *G_aux;
@@ -193,6 +309,7 @@ class SpAc_solver{
     }
     G.resize(0);
     MPI_Send(G_aux, work_control[0], MPI_DOUBLE, server,TAG_Gval, world);
+    printf("G sent from %d \n",myid);
     delete G_aux;
     //B_i is sent
     int *B_i_aux;
@@ -200,6 +317,7 @@ class SpAc_solver{
     for(int i = 0; i < work_control[1]; i++) B_i_aux[i] = B_i[i];
     B_i.resize(0);
     MPI_Send(B_i_aux, work_control[1], MPI_INT, server, TAG_Bi, world);
+    printf("B_i sent from %d \n",myid);
     delete B_i_aux;
     //B is sent
     double *B_aux;
@@ -207,6 +325,7 @@ class SpAc_solver{
     for(int i = 0; i < work_control[1]; i++) B_aux[i] = B[i];
     B.resize(0);
     MPI_Send(B_aux, work_control[1], MPI_DOUBLE, server, TAG_Bval, world);
+    printf("B sent from %d \n",myid);
     delete B_aux;
     FILE *dfile;
     dfile = fopen(debug_fname,"a");
@@ -223,6 +342,7 @@ class SpAc_solver{
     MPI_Send(work_control, 2, MPI_INT, status.MPI_SOURCE, REPLY_WORKER, world);
     //The server accumulates the values of G and B
     MPI_Recv(work_control, 2, MPI_INT, status.MPI_SOURCE, ASK_FOR_JOB, world, &status);
+    printf("Work control received from %d\n Work control =  [%d %d]\n",status.MPI_SOURCE, work_control[0], work_control[1]);
     G.resize(work_control[0]);
     G_i.resize(work_control[0]);
     G_j.resize(work_control[0]);
@@ -231,16 +351,19 @@ class SpAc_solver{
     double *G_aux;
     G_i_aux = new int[work_control[0]];
     MPI_Recv(G_i_aux, work_control[0], MPI_INT, status.MPI_SOURCE, TAG_Gi, world, &status);
+    printf("G_i received from %d \n",status.MPI_SOURCE);
     for(int i = 0; i < work_control[0]; i++) G_i[i] = G_i_aux[i];
     delete G_i_aux;
     //G_j is received
     G_j_aux = new int[work_control[0]];
     MPI_Recv(G_j_aux, work_control[0], MPI_INT, status.MPI_SOURCE, TAG_Gj, world, &status);
+    printf("G_j received from %d \n",status.MPI_SOURCE);
     for(int i = 0; i < work_control[0]; i++) G_j[i] = G_j_aux[i];
     delete G_j_aux;
     //G is received
     G_aux = new double[work_control[0]];
     MPI_Recv(G_aux, work_control[0], MPI_DOUBLE, status.MPI_SOURCE, TAG_Gval, world, &status);
+    printf("G received from %d \n",status.MPI_SOURCE);
     for(int i = 0; i < work_control[0]; i++) G[i] = G_aux[i];
     delete G_aux;
     //Triplets vector is fullfilled
@@ -257,11 +380,13 @@ class SpAc_solver{
     //B_i is received
     B_i_aux = new int[work_control[1]];
     MPI_Recv(B_i_aux, work_control[1], MPI_INT, status.MPI_SOURCE, TAG_Bi, world, &status);
+    printf("B_i received from %d \n",status.MPI_SOURCE);
     for(int i = 0; i< work_control[1]; i++) B_i[i] = B_i_aux[i];
     delete B_i_aux;
     //B is received
     B_aux = new double[work_control[1]];
     MPI_Recv(B_aux, work_control[1], MPI_DOUBLE, status.MPI_SOURCE, TAG_Bval, world, &status);
+    printf("B received from %d \n",status.MPI_SOURCE);
     for(int i = 0; i < work_control[1]; i++) B[i] = B_aux[i];
     delete B_aux;
     for(int j = 0; j < work_control[1]; j++){
@@ -385,6 +510,7 @@ class SpAc_solver{
         G_j.resize(0);
         B.resize(0);
         B_i.resize(0);
+        double start = MPI_Wtime();
         FILE *data;
         data = fopen(G_i_MC,"r");
         char *buffer = NULL;
@@ -401,6 +527,7 @@ class SpAc_solver{
         line_size = getline(&buffer, &line_buf_size, data);
         while (line_size >= 0){
             G_i.push_back(atoi(buffer));
+            printf("G_i_Det %d \n",atoi(buffer));
             line_size = getline(&buffer, &line_buf_size, data);
         }
         fclose(data);
@@ -408,6 +535,7 @@ class SpAc_solver{
         line_size = getline(&buffer, &line_buf_size, data);
         while (line_size >= 0){
             G_j.push_back(atoi(buffer));
+            printf("G_j_MC %d \n",atoi(buffer));
             line_size = getline(&buffer, &line_buf_size, data);
         }
         fclose(data);
@@ -415,6 +543,7 @@ class SpAc_solver{
         line_size = getline(&buffer, &line_buf_size, data);
         while (line_size >= 0){
             G_j.push_back(atoi(buffer));
+            printf("G_j_Det %d \n",atoi(buffer));
             line_size = getline(&buffer, &line_buf_size, data);
         }
         fclose(data);
@@ -422,6 +551,7 @@ class SpAc_solver{
         line_size = getline(&buffer, &line_buf_size, data);
         while (line_size >= 0){
             G.push_back(atof(buffer));
+            printf("G_MC %f \n",atof(buffer));
             line_size = getline(&buffer, &line_buf_size, data);
         }
         fclose(data);
@@ -429,12 +559,14 @@ class SpAc_solver{
         line_size = getline(&buffer, &line_buf_size, data);
         while (line_size >= 0){
             G.push_back(atof(buffer));
+            printf("G_Det %f \n",atof(buffer));
             line_size = getline(&buffer, &line_buf_size, data);
         }
         fclose(data);
         //Triplets vector is fullfilled
         for(unsigned int j = 0; j <G.size(); j++){
             T_vec_G.push_back(T(G_i[j], G_j[j], G[j]));
+            printf("T_vec_G element %u\n",j);
         }
         G.resize(0);
         G_i.resize(0);
@@ -472,20 +604,31 @@ class SpAc_solver{
         }
         B.resize(0);
         B_i.resize(0);
+        double end_reading = MPI_Wtime();
         Eigen::SparseMatrix<double> G_sparse, I_sparse, B_sparse;
         //Eigen::SparseMatrix<double> I_sparse;
         unsigned int size = N_knots;
         B_sparse.resize(size, 1);
+        printf("Setting B from triplets\n");
         B_sparse.setFromTriplets(T_vec_B.begin(), T_vec_B.end());
         T_vec_B.resize(0);
         //I_sparse.resize(size, size);
         //I_sparse.setIdentity();
         G_sparse.resize(size, size);
+        printf("Setting G from triplets\n");
         G_sparse.setFromTriplets(T_vec_G.begin(),T_vec_G.end());
         T_vec_G.resize(0);
         //G_sparse+=I_sparse;
         for(unsigned int i = 0; i < knots.size(); i ++) G_sparse.coeffRef(i,i) =  std::max((double)(knots[i].size()-1),1.0);
         I_sparse.resize(0,0);
+        Eigen::VectorXd ud,Bd,guess;
+        Bd = Eigen::VectorXd(B_sparse);
+        guess = Bd*0.0;
+        double end_allocating = MPI_Wtime();
+        //Eigen::SparseLU<Eigen::SparseMatrix<double> > solver_LU;
+        //solver_LU.compute(G_sparse);
+        //solver_LU.factorize(G_sparse);
+        //ud = solver_LU.solve(Bd);
         FILE *ofile;
         ofile = fopen("Debug/G.csv","w");
         fprintf(ofile, "G_i,G_j,G_ij\n");
@@ -493,6 +636,7 @@ class SpAc_solver{
             for (Eigen::SparseMatrix<double>::InnerIterator it(G_sparse,k); it; ++it)
             {
                 fprintf(ofile,"%ld,%ld,%.8e\n",it.row(),it.col(),it.value());
+                printf("Printing G %lu %lu\n",it.row(),it.col());
             }
         fclose(ofile);
         ofile = fopen("Debug/B.csv","w");
@@ -501,18 +645,16 @@ class SpAc_solver{
             for (Eigen::SparseMatrix<double>::InnerIterator it(B_sparse,k); it; ++it)
             {
                 fprintf(ofile,"%ld,%ld,%.8e\n",it.row(),it.col(),it.value());
+                printf("Printing B %lu %lu\n",it.row(),it.col());
             }
         fclose(ofile);
-        Eigen::VectorXd ud,Bd;
-        Bd = Eigen::VectorXd(B_sparse);
         B_sparse.resize(0,0);
-        Eigen::SparseLU<Eigen::SparseMatrix<double> > solver_LU;
-        solver_LU.compute(G_sparse);
-        solver_LU.factorize(G_sparse);
-        ud = solver_LU.solve(Bd);
+        double end_printing = MPI_Wtime();
+        printf("Solving system\n");
         Eigen::BiCGSTAB<Eigen::SparseMatrix<double> > solver_IT;
         solver_IT.compute(G_sparse);
-        ud = solver_IT.solveWithGuess(Bd,ud);
+        ud = solver_IT.solveWithGuess(Bd,guess);
+        double end_solving = MPI_Wtime();
         ofile = fopen("Output/solution.csv","w");
         fprintf(ofile,"Knot_index,x,y,sol_analytic,sol_PDDS,err,rerr\n");
         double sol, err, rerr;
@@ -525,6 +667,11 @@ class SpAc_solver{
             fprintf(ofile,"%u,%1.10f,%1.6f,%1.6f,%1.10f,%1.10f,%1.10f\n",i,Knot_Position[0],Knot_Position[1],
             sol,ud(i),err,rerr);
         }
+        fclose(ofile);
+        ofile = fopen("Debug/Matrix_info.txt","w");
+        fprintf(ofile,"Iterations %u Tolerance %f\n",(unsigned int) solver_IT.iterations(),solver_IT.error()); 
+        fprintf(ofile,"Reading %f h Allocating %f h Printing %f h Solving %f h\n",(end_reading-start)/3600,(end_allocating-end_reading)/3600,(end_printing-end_allocating)/3600,
+        (end_solving-end_printing)/3600); 
         fclose(ofile);
         }
     }
@@ -613,6 +760,7 @@ class SpAc_solver{
                 }
             }
             for(int worker_index = 0; worker_index < server; worker_index ++){
+                printf("Receive G_B\n");
                 Receive_G_B();
             }
             char file_G_i[256],file_G_j[256],file_G[256],file_B_i[256], file_B[256];
@@ -675,13 +823,16 @@ class SpAc_solver{
             }
             pFile = fopen(debug_fname,"a");
             fprintf(pFile,"Process %d is done solving nodes \n", myid);
+            fclose(pFile);
             Send_G_B();
+            pFile = fopen(debug_fname,"a");
             fprintf(pFile,"Process %d is done sending G \n", myid);
             double end = MPI_Wtime();
             fprintf(pFile,"Process %d used %f  hours \n", myid, (end-start)/3600);
             fclose(pFile);
         }
         printf("Process %d ended Solve_Interfaces_MC\n",myid);
+        MPI_Finalize();
     }
     void Deterministic_Solve(Center supp_center, Center int_center,
         std::vector<int> & G_i_temp, std::vector<int> & G_j_temp, std::vector<double> & G_temp, 
@@ -707,7 +858,7 @@ class SpAc_solver{
         }
         fclose(data);
         char system_order[512];
-        sprintf(system_order,"/usr/local/MATLAB/R2020a/bin/matlab -batch \"cd(\'/home/jorge/Dropbox/DOC/SPDDS\'); Solve_Deterministic(%d);\"",myid);
+        sprintf(system_order,"/usr/local/MATLAB/R2020a/bin/matlab -batch \"cd(\'/home/jorge/Dropbox/DOC/SpAc\'); Solve_Deterministic(%d);\"",myid);
         system(system_order);
         sprintf(fname,"Matlab_buffer/B_%d.txt",myid);
         //sprintf(fname,"Matlab_buffer/B_0.txt");
@@ -854,6 +1005,7 @@ class SpAc_solver{
             fclose(pFile);
         }
         printf("Process %d ended Solve_Interfaces_MC\n",myid);
+        MPI_Finalize();
     }
     void Solve_Interfaces_Semideterministic(BVP bvp, double discretization, unsigned int N_tray){
         double start = MPI_Wtime();
