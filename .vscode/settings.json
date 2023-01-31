@@ -49,6 +49,20 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "bit": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "ctime": "cpp",
+        "chrono": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "condition_variable": "cpp",
+        "set": "cpp",
+        "ratio": "cpp",
+        "iomanip": "cpp",
+        "mutex": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "stop_token": "cpp",
+        "thread": "cpp",
+        "cfenv": "cpp"
     }
 }
