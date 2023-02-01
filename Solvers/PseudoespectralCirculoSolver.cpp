@@ -188,3 +188,16 @@ void PseudoespectralCirculoSolver::Resuelve(BVP Problema){
     solucion = QR.solve(rhs_pseudospectral);
     interpolador.valores.z = solucion.reshaped(interpolador.valores.r.rows(),interpolador.valores.r.cols());
 }
+
+void PseudoespectralCirculoSolver::Resuelve(BVP Problema, std::vector<Nudo> & nudos, std::vector<double> theta_j){
+    Eigen::VectorXd x_v(Eigen::Map<Eigen::VectorXd>(interpolador.valores.x.data(), 
+                        interpolador.valores.x.cols()*interpolador.valores.x.rows())),
+                    y_v(Eigen::Map<Eigen::VectorXd>(interpolador.valores.y.data(), 
+                        interpolador.valores.y.cols()*interpolador.valores.y.rows())),
+                    r_v(Eigen::Map<Eigen::VectorXd>(interpolador.valores.r.data(), 
+                        interpolador.valores.r.cols()*interpolador.valores.r.rows())),
+                    t_v(Eigen::Map<Eigen::VectorXd>(interpolador.valores.t.data(), 
+                        interpolador.valores.t.cols()*interpolador.valores.t.rows())),
+                    solucion;
+    
+}

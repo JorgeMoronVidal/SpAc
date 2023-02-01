@@ -13,7 +13,6 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
         nudos_circunferencia.clear();
         nudos_interior.clear();
         double angular_increment, first_angle, last_angle;
-        int interior;
         Eigen::Vector2d aux_vector;
         if(posicion_centro[0] == 0){
             if(posicion_centro[1] == 0){
@@ -51,7 +50,7 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
                         //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
                         //N_knots[0] = numero_nudos;
                         angular_increment = 2*(M_PI)/(numero_nudos_total);
-                        interior = -12;
+                        interior = -4;
                     }
                 }
         } else {
@@ -91,7 +90,7 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
                         //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
                         //N_knots[0] = numero_nudos;
                         angular_increment = 2*(M_PI)/(numero_nudos_total);
-                        interior = -43;
+                        interior = -2;
                     }
                 }
             } else {
@@ -105,7 +104,7 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
                     //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
                     //N_knots[0] = numero_nudos;
                     angular_increment = 2*(M_PI)/(numero_nudos_total);
-                    interior = -4;
+                    interior = -1;
                 } else {
                     if(posicion_centro[1] == indice_maximo_y){
                         aux_vector(1) = parametros_dominio[3] - centro[1];
@@ -117,7 +116,7 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
                         //angular_increment = (last_angle-first_angle)/(N_knots[0]-1.0);
                         //N_knots[0] = numero_nudos;
                         angular_increment = 2*(M_PI)/(numero_nudos_total);
-                        interior = -2;
+                        interior = -3;
                         //printf("first angle = %f last angle = %f angular increment = %f\n",
                         //first_angle,last_angle,angular_increment);
                     } else {
@@ -144,6 +143,7 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
                 aux_vector[0] =radio* cos((nudos_circunferencia[i]).posicion_angular);
                 aux_vector[1] =radio* sin((nudos_circunferencia[i]).posicion_angular);
                 (nudos_circunferencia[i]).posicion_cartesiana =  centro + aux_vector;
+                es_perimeter = false;
                 aux_index ++;
             }
         }else{
@@ -162,18 +162,18 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
              (nudos_circunferencia[0]).posicion_cartesiana =  centro + aux_vector;
              aux_index ++;
             for(int i = 0; i < numero_nudos_interfaz; i++){
-                aux_theta = first_angle + theta_0 + angular_increment*i;
+                    aux_theta = first_angle + theta_0 + angular_increment*i;
                 //if(aux_theta > first_angle + 0.5* angular_increment && aux_theta < last_angle - 0.5* angular_increment){
                     nudos_circunferencia.push_back(nudo);
-                    nudos_circunferencia[i].indice_local = i;
-                    nudos_circunferencia[i].indice_global = aux_index;
-                    nudos_circunferencia[i].indice_interfaz.resize(2);
-                    nudos_circunferencia[i].indice_interfaz[0] = posicion_centro[0]; 
-                    nudos_circunferencia[i].indice_interfaz[1] = posicion_centro[1];
-                    (nudos_circunferencia[i]).posicion_angular = first_angle + theta_0 + angular_increment*i;
+                    nudos_circunferencia[i+1].indice_local = i+1;
+                    nudos_circunferencia[i+1].indice_global = aux_index;
+                    nudos_circunferencia[i+1].indice_interfaz.resize(2);
+                    nudos_circunferencia[i+1].indice_interfaz[0] = posicion_centro[0]; 
+                    nudos_circunferencia[i+1].indice_interfaz[1] = posicion_centro[1];
+                    (nudos_circunferencia[i+1]).posicion_angular = first_angle + theta_0 + angular_increment*i;
                     //printf("%f \n",N_knots[0]*360/(2*M_PI));
-                    aux_vector[0] =radio* cos((nudos_circunferencia[i]).posicion_angular);
-                    aux_vector[1] =radio* sin((nudos_circunferencia[i]).posicion_angular);
+                    aux_vector[0] =radio* cos((nudos_circunferencia[i+1]).posicion_angular);
+                    aux_vector[1] =radio* sin((nudos_circunferencia[i+1]).posicion_angular);
                     (nudos_circunferencia[i+1]).posicion_cartesiana =  centro + aux_vector;
                     aux_index ++;
                 //}
@@ -185,22 +185,72 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
             nudos_circunferencia[nudos_circunferencia.size()-1].indice_interfaz.resize(2);
             nudos_circunferencia[nudos_circunferencia.size()-1].indice_interfaz[0] = posicion_centro[0]; 
             nudos_circunferencia[nudos_circunferencia.size()-1].indice_interfaz[1] = posicion_centro[1];
-             //printf("%f \n",N_knots[0]*360/(2*M_PI));
-             aux_vector[0] =radio* cos((nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_angular);
-             aux_vector[1] =radio* sin((nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_angular);
-             (nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_cartesiana =  centro + aux_vector;
-             aux_index ++;
+            //printf("%f \n",N_knots[0]*360/(2*M_PI));
+            aux_vector[0] =radio* cos((nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_angular);
+            aux_vector[1] =radio* sin((nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_angular);
+            (nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_cartesiana =  centro + aux_vector;
+            es_perimeter = true;
+            if(interior < -10){
+                Calcula_Psi(problema,c2["esquina"]);
+            }else{
+                Calcula_Psi(problema,c2["lado"]);
+            }
+            aux_index ++;
         }
         return aux_index;
 }
 
-double Interfaz::Calcula_Psi(BVP problema, double c2){
-    Psi.resize(nudos_circunferencia.size());
+double Interfaz::Calcula_Psi(BVP problema, double C2){
+    c2 = C2;
+    Psi.resize(nudos_circunferencia.size(),nudos_circunferencia.size());
     for(int i = 0; i < nudos_circunferencia.size(); i++){
         for(int j = 0; j < nudos_circunferencia.size(); j++){
             Psi(i,j) = problema.RBF(nudos_circunferencia[i].posicion_angular,nudos_circunferencia[j].posicion_angular,c2);
         }
     }
-    iPsi = Psi.inverse();
+    Eigen::FullPivLU<Eigen::MatrixXd> lu(Psi);
+    iPsi = lu.inverse();
     return iPsi.norm()*Psi.norm();
 }
+
+void Interfaz::Update_G(double Y, Eigen::Vector2d X, BVP problema, std::map<int,double> &G){
+    double theta;
+    int i = 0;
+    switch (interior)
+    {
+    case -11:
+        theta = Atan180(X);
+        break;
+    case -22:
+        theta = Atan180(X);
+        break;
+    case -33:
+        theta = Atan0(X);
+        break;
+    case -44:
+        theta = Atan0(X);
+        break;
+    case -1:
+        theta = Atan270(X);
+        break;
+    case -2:
+        theta = Atan0(X);
+        break;
+    case -3:
+        theta = Atan90(X);
+        break;
+    case -4:
+        theta = Atan180(X);
+        break;
+    default:
+        std::cout << __FILE__ << " "<< __LINE__ <<"ERROR" << std::endl;
+        break;
+    }
+    for(int i = 0; i < nudos_circunferencia.size(); i ++){
+        for(int j = 0; j < nudos_circunferencia.size(); j++){
+            G[nudos_circunferencia[i].indice_global] += 
+            Y*iPsi(i,j)*problema.RBF(theta,nudos_circunferencia[i].posicion_angular,c2);
+        }
+        i++;
+    }
+} 

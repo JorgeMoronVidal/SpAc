@@ -33,10 +33,10 @@ int main(){
     parametros_circulo[2] = 0.0;
     std::vector<double> parametros_rectangulo;
     parametros_rectangulo.resize(4);
-    parametros_rectangulo[0] = -8.0;
-    parametros_rectangulo[1] = -8.0;
-    parametros_rectangulo[2] = 8.0;
-    parametros_rectangulo[3] = 8.0;
+    parametros_rectangulo[0] = -1.5;
+    parametros_rectangulo[1] = -1.5;
+    parametros_rectangulo[2] = 1.5;
+    parametros_rectangulo[3] = 1.5;
     bvp.frontera_dominio.Inicializa(parametros_rectangulo,Rectangulo,Stopping,Stopping);
     bvp.frontera_subdominio.Inicializa(parametros_circulo,Circulo,Stopping,Stopping);
     BVP bvp_2;
@@ -45,7 +45,9 @@ int main(){
     Eigen::Vector2d aux;
     Malla mesh;
     std::map<std::string,double> c2;
-    mesh.Construye_Cuadrado(parametros_rectangulo,5,1.2,0.1428,44,bvp,c2);
+    c2["esquina"] = 1.5; //Cond Psi = 1.02E+10
+    c2["lado"] = 1.1; //Cond Psi = 1.11E+10
+    mesh.Construye_Cuadrado(parametros_rectangulo,3,1.2,0.1428,44,bvp,c2);
 }
    /*FeynmanKacSolver solver;
     Eigen::Vector2d X0;

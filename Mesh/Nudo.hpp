@@ -45,10 +45,9 @@ class Nudo{
     std::vector<int> indice_interfaz;
     //Coeficiente B[i], valor de la solucion sobre el nodo, de la varianza, coeficiente de pearson entre phi y xi, 
     //error estadístico cometido y bias.
-    double B_i,solucion, error, varianza, coeficiente_Pearson, error_estadistico, bias;
+    double B,solucion, error, varianza, coeficiente_Pearson, error_estadistico, bias;
     //Componentes de G (Formato COO)
     std::map<int,double> G;
-    Eigen::MatrixXd Psi, iPsi;
     Nudo(void){
         
     }

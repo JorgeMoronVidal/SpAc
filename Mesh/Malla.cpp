@@ -20,11 +20,10 @@ void Malla::Construye_Cuadrado(std::vector<double> PARAMETROS_DOMINIO,int NUMERO
             parametros_dominio[3] = PARAMETROS_DOMINIO[3];
             superposicion = SUPERPOSICION;
             angulo_inicial = ANGULO_INICIAL;
-            std::cout << __FILE__ <<"\t"<<__LINE__ << "\t" << angulo_inicial << std::endl; 
             nudos_por_circulo = NUDOS_POR_CIRCULO;
             numero_subdominios_lado = NUMERO_SUBDOMINIOS_LADO;
             for(std::map<std::string,double>::iterator it = C2.begin(); 
-                it != C2.end(); it ++) C2[it->first] = it -> second;
+                it != C2.end(); it ++) c2[it->first] = it -> second;
             //disp = (parametros_dominio[2] - parametros_dominio[0])*superposition_coefficent/(2*superposition_coefficent + 2*K_EXCESS*(N_centers-1));
             //d = (parametros_dominio[2] - parametros_dominio[0] - 2*disp)/(N_centers -1);
             distancia = (parametros_dominio[2] - parametros_dominio[0])/(numero_subdominios_lado -1);

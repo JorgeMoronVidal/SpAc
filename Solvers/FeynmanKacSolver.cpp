@@ -143,6 +143,7 @@ void FeynmanKacSolver::Simulacion_OMP(Eigen::Vector2d X0, unsigned int numero_tr
         X_tau.resize(numero_trayectorias);
         Y_tau.resize(numero_trayectorias);
         Z_tau.resize(numero_trayectorias);
+        outcome_tau.resize(numero_trayectorias);
         tau.resize(numero_trayectorias);
         xi_tau.resize(numero_trayectorias);
         RNGcallsv.resize(numero_trayectorias);
@@ -188,6 +189,9 @@ void FeynmanKacSolver::Simulacion_OMP(Eigen::Vector2d X0, unsigned int numero_tr
                 Z_tau[n] = Z;
                 tau[n] = t;
                 xi_tau[n] = xi;
+                RNGcallsv[n] = RNGCalls_thread;
+                outcome_tau[n] = estado_local;
+                threads[n] = omp_get_thread_num();
             }
             #pragma omp barrier
         }
@@ -197,7 +201,7 @@ void FeynmanKacSolver::Reduce_Analytic(BVP Problema, unsigned int numero_trayect
         {
             double score_lineal_nvr_thread;
             double sums_local[30];
-            for(int i = 0; i < 30; i++) sums_local[i] = 0;
+            for(int i = 0; i < 30; i++) sums_local[i] = 0.0;
             #pragma omp for
             for(unsigned int n = 0; n<numero_trayectorias; n++){
                 score_lineal_nvr_thread = Z_tau[n] + Y_tau[n]*Problema.g.Evalua(X_tau[n]);
@@ -227,15 +231,33 @@ void FeynmanKacSolver::Reduce_Analytic(BVP Problema, unsigned int numero_trayect
 
 }
 
-void FeynmanKacSolver::Reduce_Analytic(BVP Problema, unsigned int numero_trayectorias,Nudo nudo, Interfaz interfaz){
-     #pragma omp parallel
-        {
-            double score_lineal_nvr_thread;
+void FeynmanKacSolver::Reduce_Analytic(BVP Problema, unsigned int numero_trayectorias,Nudo & nudo, Interfaz interfaz){
+    for(int i = 0; i < interfaz.nudos_circunferencia.size(); i++) nudo.G[interfaz.nudos_circunferencia[i].indice_global] = 0.0;
+    nudo.B = 0.0;
+    #pragma omp parallel
+    {
+            double score_lineal_nvr_thread, B_local = 0;
             std::map<int,double> G_local;
-            /*
+            for(int i = 0; i < interfaz.nudos_circunferencia.size(); i++) G_local[interfaz.nudos_circunferencia[i].indice_global] = 0.0;
+            double sums_local[30];
+            for(int i = 0; i < 30; i++) sums_local[i] = 0.0;
             #pragma omp for
             for(unsigned int n = 0; n<numero_trayectorias; n++){
-                score_lineal_nvr_thread = Z_tau[n] + Y_tau[n]*Problema.g.Evalua(X_tau[n]);
+                switch (outcome_tau[n])
+                {
+                case outcome::parada_dominio :
+                    score_lineal_nvr_thread = Z_tau[n] + Y_tau[n]*Problema.g.Evalua(X_tau[n]);
+                    B_local += score_lineal_nvr_thread + xi_tau[n];
+                    break;
+                case outcome::parada_subdominio :
+                    score_lineal_nvr_thread = Z_tau[n] + Y_tau[n]*Problema.u.Evalua(X_tau[n]);
+                    interfaz.Update_G(Y_tau[n],X_tau[n],Problema,G_local);
+                    B_local += Z_tau[n] + xi_tau[n];
+                    break;
+                default:
+                    std::cout <<__FILE__<<__LINE__<< "ERROR" << std::endl;
+                    break;
+                }
                 sums_local[ScoreLinear] += score_lineal_nvr_thread;
                 sums_local[ScoreLinear2] += score_lineal_nvr_thread* score_lineal_nvr_thread;
                 sums_local[XiLinear] += xi_tau[n];
@@ -247,7 +269,10 @@ void FeynmanKacSolver::Reduce_Analytic(BVP Problema, unsigned int numero_trayect
                 sums_local[tauLinear] += tau[n];
             }
             #pragma omp critical
-            {
+            {   
+                for(std::map<int,double>::iterator it_G = G_local.begin(); 
+                it_G != G_local.end(); it_G++) nudo.G[it_G->first] += it_G->second;
+                nudo.B += B_local;
                 sums[ScoreLinear] += sums_local[ScoreLinear];
                 sums[ScoreLinear2] += sums_local[ScoreLinear2];
                 sums[XiLinear] += sums_local[XiLinear];
@@ -257,8 +282,8 @@ void FeynmanKacSolver::Reduce_Analytic(BVP Problema, unsigned int numero_trayect
                 sums[XiScoreLinear] += sums_local[XiScoreLinear];
                 sums[RNGCalls] += sums_local[RNGCalls];
                 sums[tauLinear] += sums_local[tauLinear];
-            }*/
-        }
+            }
+    }
 }
 
 void FeynmanKacSolver::Update(void){
@@ -291,6 +316,12 @@ void FeynmanKacSolver::Update(void){
         RNGC = sums[RNGCalls];
         APL = sums[tauLinear]/N;
 }
+void FeynmanKacSolver::Update(Nudo & nudo){
+    for(std::map<int,double>::iterator it_G = nudo.G.begin(); 
+                it_G != nudo.G.end(); it_G++) nudo.G[it_G->first] = it_G->second/N;
+    nudo.B = nudo.B/N;
+    Update();
+}
 void FeynmanKacSolver::Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
         double rho, BVP Problema){
         N = 0;
@@ -298,4 +329,13 @@ void FeynmanKacSolver::Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numer
         Simulacion_OMP(X0,numero_trayectorias,discretizacion_temporal,rho,Problema);
         Reduce_Analytic(Problema, numero_trayectorias);
         Update();
+}
+
+void FeynmanKacSolver::Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
+        double rho, BVP Problema, Nudo nudo, Interfaz interfaz){
+        N = 0;
+        for(int i = 0; i < 30; i++) sums[i] = 0;
+        Simulacion_OMP(X0,numero_trayectorias,discretizacion_temporal,rho,Problema);
+        Reduce_Analytic(Problema, numero_trayectorias, nudo, interfaz);
+        Update(nudo);
 }

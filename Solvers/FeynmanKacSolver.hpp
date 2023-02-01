@@ -45,6 +45,7 @@ class FeynmanKacSolver{
     //Procesos y cantidades vitales para el 
     std::vector<Eigen::Vector2d> X_tau;
     std::vector<double> Y_tau, Z_tau, tau, xi_tau;
+    std::vector<outcome> outcome_tau;
     std::vector<unsigned int> RNGcallsv;
     //Generadores de números aleatorios
     std::vector<boost::mt19937> RNG;
@@ -88,9 +89,12 @@ class FeynmanKacSolver{
     void Simulacion_OMP(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
                    double rho, BVP Problema);
     void Reduce_Analytic(BVP Problema, unsigned int numero_trayectorias);
-    void Reduce_Analytic(BVP Problema, unsigned int numero_trayectorias,Nudo nudo, Interfaz interfaz);
+    void Reduce_Analytic(BVP Problema, unsigned int numero_trayectorias,Nudo & nudo, Interfaz interfaz);
     void Update(void);
+    void Update(Nudo & nudo);
     void Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
                    double rho, BVP Problema);
+    void Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
+        double rho, BVP Problema, Nudo nudo, Interfaz interfaz);
 };
 #endif

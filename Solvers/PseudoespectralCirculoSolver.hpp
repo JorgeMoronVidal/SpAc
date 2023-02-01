@@ -14,5 +14,6 @@ class PseudoespectralCirculoSolver{
     void Inicializa(Eigen::Vector2d centro, double radio, unsigned int N_circunferencia, 
          unsigned int N_radio, double theta_0, BVP Problema);
     void Resuelve(BVP Problema);
+    void Resuelve(BVP Problema, std::vector<Nudo> & nudos, std::vector<double> theta_j);
 };
 #endif
