@@ -156,12 +156,13 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
             nudos_circunferencia[0].indice_interfaz.resize(2);
             nudos_circunferencia[0].indice_interfaz[0] = posicion_centro[0]; 
             nudos_circunferencia[0].indice_interfaz[1] = posicion_centro[1];
-             //printf("%f \n",N_knots[0]*360/(2*M_PI));
-             aux_vector[0] =radio* cos((nudos_circunferencia[0]).posicion_angular);
-             aux_vector[1] =radio* sin((nudos_circunferencia[0]).posicion_angular);
-             (nudos_circunferencia[0]).posicion_cartesiana =  centro + aux_vector;
-             aux_index ++;
-            for(int i = 0; i < numero_nudos_interfaz; i++){
+            //printf("%f \n",N_knots[0]*360/(2*M_PI));
+            aux_vector[0] =radio* cos((nudos_circunferencia[0]).posicion_angular);
+            aux_vector[1] =radio* sin((nudos_circunferencia[0]).posicion_angular);
+            (nudos_circunferencia[0]).posicion_cartesiana =  centro + aux_vector;
+            (nudos_circunferencia[0]).frontera = true;
+            aux_index ++;
+            for(int i = 0; i < numero_nudos_interfaz ; i++){
                     aux_theta = first_angle + theta_0 + angular_increment*i;
                 //if(aux_theta > first_angle + 0.5* angular_increment && aux_theta < last_angle - 0.5* angular_increment){
                     nudos_circunferencia.push_back(nudo);
@@ -175,6 +176,7 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
                     aux_vector[0] =radio* cos((nudos_circunferencia[i+1]).posicion_angular);
                     aux_vector[1] =radio* sin((nudos_circunferencia[i+1]).posicion_angular);
                     (nudos_circunferencia[i+1]).posicion_cartesiana =  centro + aux_vector;
+                    (nudos_circunferencia[i+1]).frontera = false;
                     aux_index ++;
                 //}
             }
@@ -189,6 +191,7 @@ int Interfaz::Inicia_Cuadrado(double RADIO, BVP problema, std::vector<double> PA
             aux_vector[0] =radio* cos((nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_angular);
             aux_vector[1] =radio* sin((nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_angular);
             (nudos_circunferencia[nudos_circunferencia.size()-1]).posicion_cartesiana =  centro + aux_vector;
+            (nudos_circunferencia[nudos_circunferencia.size()-1]).frontera = true;
             es_perimeter = true;
             if(interior < -10){
                 Calcula_Psi(problema,c2["esquina"]);
@@ -219,38 +222,43 @@ void Interfaz::Update_G(double Y, Eigen::Vector2d X, BVP problema, std::map<int,
     switch (interior)
     {
     case -11:
-        theta = Atan180(X);
+        theta = Atan180(X-centro);
         break;
     case -22:
-        theta = Atan180(X);
+        theta = Atan180(X-centro);
         break;
     case -33:
-        theta = Atan0(X);
+        theta = Atan0(X-centro);
         break;
     case -44:
-        theta = Atan0(X);
+        theta = Atan0(X-centro);
         break;
     case -1:
-        theta = Atan270(X);
+        theta = Atan270(X-centro);
         break;
     case -2:
-        theta = Atan0(X);
+        theta = Atan0(X-centro);
         break;
     case -3:
-        theta = Atan90(X);
+        theta = Atan90(X-centro);
         break;
     case -4:
-        theta = Atan180(X);
+        theta = Atan180(X-centro);
         break;
     default:
         std::cout << __FILE__ << " "<< __LINE__ <<"ERROR" << std::endl;
         break;
     }
-    for(int i = 0; i < nudos_circunferencia.size(); i ++){
-        for(int j = 0; j < nudos_circunferencia.size(); j++){
-            G[nudos_circunferencia[i].indice_global] += 
-            Y*iPsi(i,j)*problema.RBF(theta,nudos_circunferencia[i].posicion_angular,c2);
+    //double aux = 0.0, H_j;
+    for(int j = 0; j < nudos_circunferencia.size(); j ++){
+        //H_j = 0;
+        for(int i = 0; i < nudos_circunferencia.size(); i++){
+            G[nudos_circunferencia[j].indice_global] += 
+            -Y*iPsi(i,j)*problema.RBF(theta,nudos_circunferencia[i].posicion_angular,c2);
+            //H_j += iPsi(i,j)*problema.RBF(theta,nudos_circunferencia[i].posicion_angular,c2);
         }
-        i++;
+        //aux += problema.u.Evalua(nudos_circunferencia[j].posicion_cartesiana)*H_j;
     }
+    //std::cout << theta <<" "<<  aux  << " " << problema.u.Evalua(X) << std::endl;
+    //getchar();
 } 

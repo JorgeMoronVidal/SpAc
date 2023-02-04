@@ -1,9 +1,14 @@
 #ifndef CLASS_INTERPOLADOR_PS
 #define CLASS_INTERPOLADOR_PS
 #include "Interpolador.hpp"
+
 //Plantilla de Interpolador Pseudoespectral
 class Interpolador_PS : public Interpolador{
     public:
+    //Variables relacionadas con la interpolacion Baricentrica y de Fourier
+    int m,n,N;
+    double normN;
+    Eigen::VectorXd c,diametro;
     //Resetea el interpolador
     void Resetea(void);
     //Prepara el interpolador

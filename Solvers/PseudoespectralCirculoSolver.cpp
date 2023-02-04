@@ -66,7 +66,7 @@ void PseudoespectralCirculoSolver::Inicializa(Eigen::Vector2d centro, double rad
         theta.resize(N_circunferencia);
         aux_vector.resize(N_circunferencia);
         for(unsigned int fila = 0 ; fila < N_circunferencia;fila ++){ 
-            theta(fila) = (fila+1)*dtheta + theta_0;
+            theta(fila) = (fila)*dtheta + theta_0;
             if(fila == 0){
                 aux_vector(fila) = -(M_PI*M_PI/(3*dtheta*dtheta))-(1.0/6);
             }else{
@@ -128,6 +128,7 @@ void PseudoespectralCirculoSolver::Inicializa(Eigen::Vector2d centro, double rad
         L_pseudospectral = L_r1 + L_r2 + L_t;
         //Subdomain mesh creation
         interpolador.valores.centro = centro;
+        interpolador.valores.radio = radio;
         interpolador.valores.r.resize(N_circunferencia,N2+1);
         interpolador.valores.t.resize(N_circunferencia,N2+1);
         interpolador.valores.x.resize(N_circunferencia,N2+1);
@@ -136,9 +137,22 @@ void PseudoespectralCirculoSolver::Inicializa(Eigen::Vector2d centro, double rad
             for(unsigned int columna = 0; columna < N2+1; columna ++){
                 interpolador.valores.r(fila,columna) = r(columna);
                 interpolador.valores.t(fila,columna) = theta(fila);
-                interpolador.valores.x(fila,columna) = r(columna)*cos(theta(fila));
-                interpolador.valores.y(fila,columna) = r(columna)*sin(theta(fila));
+                interpolador.valores.x(fila,columna) = r(columna)*cos(theta(fila)) + centro(0);
+                interpolador.valores.y(fila,columna) = r(columna)*sin(theta(fila)) + centro(1);
             }
+        }
+        interpolador.m = interpolador.valores.r.cols()*2;
+        interpolador.N = interpolador.valores.r.rows();
+        interpolador.n = interpolador.N/2;
+        interpolador.normN = 1.0/interpolador.N;
+        interpolador.c.resize(interpolador.m);
+        interpolador.diametro.resize(interpolador.m);
+        interpolador.diametro.head(interpolador.m/2) = -1.0*Eigen::VectorXd(interpolador.valores.r.row(1));
+        interpolador.diametro.tail(interpolador.m/2) = Eigen::VectorXd(interpolador.valores.r.row(1)).reverse().eval();
+        interpolador.diametro = interpolador.diametro/interpolador.valores.radio;
+        double i_ts = -1.0 +1.0/interpolador.m;
+        for(int i = 0; i < interpolador.m; i++){
+            interpolador.c(i) = pow(-1,i)*sin(M_PI*(i_ts + (2.0/interpolador.m)*i +1)/2);
         }
         Eigen::VectorXd x_v(Eigen::Map<Eigen::VectorXd>(interpolador.valores.x.data(), 
                         interpolador.valores.x.cols()*interpolador.valores.x.rows())),
@@ -189,7 +203,7 @@ void PseudoespectralCirculoSolver::Resuelve(BVP Problema){
     interpolador.valores.z = solucion.reshaped(interpolador.valores.r.rows(),interpolador.valores.r.cols());
 }
 
-void PseudoespectralCirculoSolver::Resuelve(BVP Problema, std::vector<Nudo> & nudos, std::vector<double> theta_j){
+void PseudoespectralCirculoSolver::Resuelve(BVP Problema, std::vector<Nudo> & nudos_interior, std::vector<Nudo> nudos_periferia){
     Eigen::VectorXd x_v(Eigen::Map<Eigen::VectorXd>(interpolador.valores.x.data(), 
                         interpolador.valores.x.cols()*interpolador.valores.x.rows())),
                     y_v(Eigen::Map<Eigen::VectorXd>(interpolador.valores.y.data(), 
@@ -199,5 +213,49 @@ void PseudoespectralCirculoSolver::Resuelve(BVP Problema, std::vector<Nudo> & nu
                     t_v(Eigen::Map<Eigen::VectorXd>(interpolador.valores.t.data(), 
                         interpolador.valores.t.cols()*interpolador.valores.t.rows())),
                     solucion;
-    
+    rhs_pseudospectral.resize(x_v.size());
+    Eigen::Vector2d aux;
+    //Resuelve B
+    for(unsigned int fila = 0; fila < x_v.size(); fila++){
+        aux(0) = x_v(fila);
+        aux(1) = y_v(fila);
+        if(fila >= interpolador.valores.r.rows()){
+            rhs_pseudospectral(fila) = (-1.0)*Problema.f.Evalua(aux);
+        }else{
+            rhs_pseudospectral(fila) = 0.0;
+            //rhs_pseudospectral(fila) = Problema.g.Evalua(nudos_periferia[fila].posicion_cartesiana);
+        }
+    }
+    solucion = QR.solve(rhs_pseudospectral);
+    interpolador.valores.z = solucion.reshaped(interpolador.valores.r.rows(),interpolador.valores.r.cols());
+    for(int fila_B = 0; fila_B < nudos_interior.size(); fila_B ++){
+        nudos_interior[fila_B].B = interpolador.Interpola(nudos_interior[fila_B].posicion_cartesiana);
+        //std::cout << nudos_interior[fila_B].B - Problema.u.Evalua(nudos_interior[fila_B].posicion_cartesiana) << std::endl;
+    }
+    /*std::ofstream file_sol("Bsol.txt"), file_x("B_x.txt"), file_y("B_y.txt") ;
+        file_sol << interpolador.valores.z;
+        file_x << interpolador.valores.x;
+        file_y << interpolador.valores.y;
+        file_sol.close(); file_x.close(); file_y.close();
+        getchar();*/
+    //Resuelve las columnas de G asociadas a los nudos sobre la interfaz dada
+    int n = nudos_periferia.size()/2;
+    rhs_pseudospectral = rhs_pseudospectral*0.0;
+    for(int i = 0; i < nudos_periferia.size();i ++){
+        for(unsigned int fila = 0; fila < interpolador.valores.r.rows(); fila++){
+            rhs_pseudospectral(fila) = Problema.fcardinal_Fourier(interpolador.valores.t(fila,0)
+            ,nudos_periferia[i].posicion_angular,n);
+        }
+        solucion = QR.solve(rhs_pseudospectral);
+        interpolador.valores.z = solucion.reshaped(interpolador.valores.r.rows(),interpolador.valores.r.cols());
+        /*std::ofstream file_sol("Gsol.txt"), file_x("G_x.txt"), file_y("G_y.txt") ;
+        file_sol << interpolador.valores.z;
+        file_x << interpolador.valores.x;
+        file_y << interpolador.valores.y;
+        file_sol.close(); file_x.close(); file_y.close();
+        //getchar();*/
+        for(int fila_G = 0; fila_G < nudos_interior.size(); fila_G ++){
+            nudos_interior[fila_G].G[nudos_periferia[i].indice_global] = (-1.0)*interpolador.Interpola(nudos_interior[fila_G].posicion_cartesiana);
+        }
+    }
 }

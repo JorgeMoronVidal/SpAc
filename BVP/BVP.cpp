@@ -20,11 +20,10 @@ void BVP::Reset(void){
     fcardinal_Fourier = Cardinal_Fourier;
 }
 inline double Inverse_Multiquadric(double theta, double theta_j, double c2){
-    return 1/sqrt(pow(theta-theta_j,2)+c2);
+    return 1.0/sqrt(pow(theta-theta_j,2)+c2);
 }
-double Cardinal_Fourier(double theta, std::vector<double> theta_j){
+double Cardinal_Fourier(double theta, double theta_j, int n){
     double aux = 0.0;
-    int n = theta_j.size()/2;
-    for(int i = 0; i < theta_j.size(); i++) aux += cos((n+i)*(theta-theta_j[i]));
+    for(int k = -n; k < n; k++) aux += cos(k*(theta-theta_j));
     return aux/(2*n);
 }

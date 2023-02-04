@@ -94,7 +94,7 @@ class FeynmanKacSolver{
     void Update(Nudo & nudo);
     void Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
                    double rho, BVP Problema);
-    void Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
-        double rho, BVP Problema, Nudo nudo, Interfaz interfaz);
+    void Solve_OMP_Analytic(Nudo & nudo, unsigned int numero_trayectorias, double discretizacion_temporal,
+        double rho, BVP Problema, Interfaz interfaz);
 };
 #endif

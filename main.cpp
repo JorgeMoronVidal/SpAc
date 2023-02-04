@@ -1,6 +1,6 @@
 //g++ -g -lm -fopenmp main.cpp BVP/*.cpp Solvers/*.cpp  -march=native  -O3
 #include<iostream>
-#include"BVPs/Monegros_Revamped.hpp"
+#include"BVPs/Franke_Poisson.hpp"
 #include"Dominios/Circulo.hpp"
 #include"Dominios/Rectangulo.hpp"
 #include"Solvers/FeynmanKacSolver.hpp"
@@ -11,13 +11,13 @@ int main(){
     Coeficiente_Escalar u,g,c,f,f_2,g_2;
     Coeficiente_Vectorial b,F;
     Coeficiente_Matricial sigma;
-    u.Inicializa(Monegros_u);
-    g.Inicializa(Monegros_g);
-    c.Inicializa(Monegros_c);
-    f.Inicializa(Monegros_f);
-    sigma.Inicializa(Monegros_sigma);
-    b.Inicializa(Monegros_b);
-    F.Inicializa(Monegros_F);
+    u.Inicializa(Franke_u);
+    g.Inicializa(Franke_g);
+    c.Inicializa(Franke_c);
+    f.Inicializa(Franke_f);
+    sigma.Inicializa(Franke_sigma);
+    b.Inicializa(Franke_b);
+    F.Inicializa(Franke_F);
     BVP bvp;
     bvp.u = u;
     bvp.g = g;
@@ -28,26 +28,91 @@ int main(){
     bvp.F = F;
     std::vector<double> parametros_circulo;
     parametros_circulo.resize(3);
-    parametros_circulo[0] = 10.0;
+    parametros_circulo[0] = 0.0;
     parametros_circulo[1] = 0.0;
     parametros_circulo[2] = 0.0;
     std::vector<double> parametros_rectangulo;
     parametros_rectangulo.resize(4);
-    parametros_rectangulo[0] = -1.5;
-    parametros_rectangulo[1] = -1.5;
-    parametros_rectangulo[2] = 1.5;
-    parametros_rectangulo[3] = 1.5;
+    parametros_rectangulo[0] = 0.0;
+    parametros_rectangulo[1] = 0.0;
+    parametros_rectangulo[2] = 1.25;
+    parametros_rectangulo[3] = 1.25;
     bvp.frontera_dominio.Inicializa(parametros_rectangulo,Rectangulo,Stopping,Stopping);
     bvp.frontera_subdominio.Inicializa(parametros_circulo,Circulo,Stopping,Stopping);
-    BVP bvp_2;
-    bvp_2 = bvp;
-    bvp_2.g = g_2;
     Eigen::Vector2d aux;
     Malla mesh;
     std::map<std::string,double> c2;
     c2["esquina"] = 1.5; //Cond Psi = 1.02E+10
     c2["lado"] = 1.1; //Cond Psi = 1.11E+10
-    mesh.Construye_Cuadrado(parametros_rectangulo,3,1.2,0.1428,44,bvp,c2);
+    mesh.Construye_Cuadrado(parametros_rectangulo,4,1.0,0.1428,44,bvp,c2);
+    PseudoespectralCirculoSolver solver_ps;
+    FeynmanKacSolver solver_fk;
+    unsigned t0,t1,t2;
+    for(std::vector<Interfaz>::iterator it_inter = mesh.Interfaces.begin();
+    it_inter !=  mesh.Interfaces.end(); it_inter ++){
+        if((*it_inter).es_perimeter){
+            parametros_circulo[0] = (*it_inter).radio;
+            parametros_circulo[1] = (*it_inter).centro(0);
+            parametros_circulo[2] = (*it_inter).centro(1);
+            bvp.frontera_subdominio.Inicializa(parametros_circulo,Circulo,Stopping,Stopping);
+            for(std::vector<Nudo>::iterator it_nudo = (*it_inter).nudos_interior.begin();
+            it_nudo != (*it_inter).nudos_interior.end(); it_nudo ++){
+                t0 = clock();
+                solver_fk.Solve_OMP_Analytic((*it_nudo),1000, 1E-05,1.0,bvp, (*it_inter));
+                t1 = clock();
+                std::cout<< "Tiempo resolviendo nudo " << (*it_nudo).indice_global << " " << 
+                double(t1-t0)/CLOCKS_PER_SEC << std::endl;
+            }
+        } else {
+            t0 = clock();
+            solver_ps.Inicializa((*it_inter).centro,(*it_inter).radio,
+            (*it_inter).nudos_circunferencia.size(),43,
+            (*it_inter).nudos_circunferencia[0].posicion_angular
+            ,bvp);
+            solver_ps.Resuelve(bvp,(*it_inter).nudos_interior,
+            (*it_inter).nudos_circunferencia);
+            t1 = clock();
+            std::cout<< "Tiempo resolviendo interfaz [" << (*it_inter).posicion_centro[0]<<
+            ", " <<(*it_inter).posicion_centro[1] << "] " << double(t1-t0)/CLOCKS_PER_SEC << std::endl;
+        }
+    }
+    std::ofstream file_G("G.txt"), file_B("B.txt");
+    file_G.precision(8);
+    file_G.setf(std::ios::fixed, std::ios::scientific);
+    file_B.precision(8);
+    file_B.setf(std::ios::fixed, std::ios::scientific);
+    std::vector<int> diagonal;
+    std::vector<double> B_vector;
+    diagonal.resize(mesh.numero_total_nudos,0);
+    B_vector.resize(mesh.numero_total_nudos,0.0);
+    for(std::vector<Interfaz>::iterator it_inter = mesh.Interfaces.begin();
+    it_inter !=  mesh.Interfaces.end(); it_inter ++){
+        for(std::vector<Nudo>::iterator it_nudo = (*it_inter).nudos_interior.begin();
+        it_nudo != (*it_inter).nudos_interior.end(); it_nudo ++){
+            for(std::map<int,double>::iterator it_G = (*it_nudo).G.begin();
+            it_G != (*it_nudo).G.end(); it_G++){
+                file_G << (*it_nudo).indice_global <<" "<< it_G->first << " "<< it_G->second << std::endl;
+            }
+            B_vector[(*it_nudo).indice_global] += (*it_nudo).B;
+            diagonal[(*it_nudo).indice_global] ++;
+        }
+    }
+    for(int i = 0; i < diagonal.size(); i++){
+        file_G << i <<" "<< i << " "<< diagonal[i] << std::endl;
+        file_B << B_vector[i] << std::endl;
+    }
+    file_G.close();
+    file_B.close();
+    std::ofstream file_position("knot_position.txt");
+    for(std::vector<Interfaz>::iterator it_inter = mesh.Interfaces.begin();
+    it_inter !=  mesh.Interfaces.end(); it_inter ++){
+        for(std::vector<Nudo>::iterator it_nudo = (*it_inter).nudos_circunferencia.begin();
+        it_nudo != (*it_inter).nudos_circunferencia.end(); it_nudo ++){
+            file_position <<(*it_nudo).indice_global <<" "<< (*it_nudo).posicion_cartesiana(0) << " " << 
+            (*it_nudo).posicion_cartesiana(1) <<" " << bvp.u.Evalua((*it_nudo).posicion_cartesiana) << std::endl;
+        }
+    }
+    file_position.close();
 }
    /*FeynmanKacSolver solver;
     Eigen::Vector2d X0;

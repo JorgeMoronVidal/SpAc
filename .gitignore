@@ -38,3 +38,6 @@
 #Old Suff
 Old_SpAc/*
 Antiguo_SpAc/*
+
+#Matlab files
+*.m

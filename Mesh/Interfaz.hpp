@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <sstream>
+#include <fstream>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/LU>
 #include "Nudo_Interior.hpp"

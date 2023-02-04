@@ -9,7 +9,7 @@ class Malla{
     std::vector<Subdominio> Subdominios;
     std::vector<double> parametros_dominio;
     double radio, angulo_inicial, superposicion, distancia;
-    int nudos_por_circulo, numero_subdominios_lado;
+    int nudos_por_circulo, numero_subdominios_lado, numero_total_nudos;
     std::map<std::string, double> c2;
     std::map<std::string,int> vecinos;
     Malla(void);

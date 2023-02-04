@@ -11,9 +11,9 @@
 #include "Coeficiente_Vectorial_Numerico.hpp"
 #include "Frontera.hpp"
 typedef double (*pRBF)(double, double, double);
-typedef double (*pCardinalFourier)(double, std::vector<double>);
+typedef double (*pCardinalFourier)(double, double, int);
 inline double Inverse_Multiquadric(double x, double theta_j, double c2);
-double Cardinal_Fourier(double theta, std::vector<double> theta_j);
+double Cardinal_Fourier(double theta, double theta_j, int n);
 class BVP{
     public:
     Coeficiente_Escalar u, g, c, f;

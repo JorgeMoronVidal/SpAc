@@ -89,7 +89,7 @@ outcome FeynmanKacSolver::Dentro(double & distancia, bool & stoppingbc, bool & N
     }else{
         stoppingbc = true;
         sigma_aux = (distancia < 0.0) ? bvp.sigma.Evalua(X) : bvp.sigma.Evalua(Npro);
-        status = (distancia < Gobet_Constant*(N.transpose()*sigma_aux).norm()*sqrth) ? dentro : parada_dominio;
+        status = (distancia < Gobet_Constant*(N.transpose()*sigma_aux).norm()*sqrth) ? dentro : parada_subdominio;
     }
     switch(status){
         
@@ -136,7 +136,7 @@ FeynmanKacSolver::FeynmanKacSolver(unsigned int MPIrank){
 };
 void FeynmanKacSolver::Simulacion_OMP(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
     double rho, BVP Problema)
-    {
+    {   
         N += numero_trayectorias;
         h = discretizacion_temporal;
         sqrth = sqrt(h);
@@ -167,7 +167,6 @@ void FeynmanKacSolver::Simulacion_OMP(Eigen::Vector2d X0, unsigned int numero_tr
                 t = 0;
                 RNGCalls_thread = 0;
                 Dentro(dist,ccabsorbentes,ccNeumann,X,ji_t,sqrth,proyeccion_normal,normal,-0.5826, Problema);
-
                 threads[n] = id;
                 do{
                     if(ccabsorbentes){
@@ -246,11 +245,17 @@ void FeynmanKacSolver::Reduce_Analytic(BVP Problema, unsigned int numero_trayect
                 switch (outcome_tau[n])
                 {
                 case outcome::parada_dominio :
+                    //std::cout << __FILE__ << __LINE__ << "Parada Dominio" << std::endl;
                     score_lineal_nvr_thread = Z_tau[n] + Y_tau[n]*Problema.g.Evalua(X_tau[n]);
                     B_local += score_lineal_nvr_thread + xi_tau[n];
                     break;
                 case outcome::parada_subdominio :
+                    //std::cout << __FILE__ << __LINE__ << "Parada Subdominio" << std::endl;
                     score_lineal_nvr_thread = Z_tau[n] + Y_tau[n]*Problema.u.Evalua(X_tau[n]);
+                    if(sqrt(pow(X_tau[n](0)-Problema.frontera_subdominio.parametros[1],2)+
+                    pow(X_tau[n](1)-Problema.frontera_subdominio.parametros[2],2))<
+                    Problema.frontera_subdominio.parametros[0]*0.99) std::cout << __FILE__<<" "<<
+                     __LINE__ << " ERROR" << std::endl;
                     interfaz.Update_G(Y_tau[n],X_tau[n],Problema,G_local);
                     B_local += Z_tau[n] + xi_tau[n];
                     break;
@@ -318,8 +323,13 @@ void FeynmanKacSolver::Update(void){
 }
 void FeynmanKacSolver::Update(Nudo & nudo){
     for(std::map<int,double>::iterator it_G = nudo.G.begin(); 
-                it_G != nudo.G.end(); it_G++) nudo.G[it_G->first] = it_G->second/N;
+                it_G != nudo.G.end(); it_G++){
+                    //std::cout << __FILE__ << __LINE__ <<" "<< it_G->first <<  " " << (it_G->second)/N << std::endl;
+                    nudo.G[it_G->first] = (it_G->second)/N;
+                } 
+    //std::cout << __FILE__ << __LINE__ << " " << nudo.B/N << std::endl;
     nudo.B = nudo.B/N;
+    //getchar();
     Update();
 }
 void FeynmanKacSolver::Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
@@ -331,11 +341,16 @@ void FeynmanKacSolver::Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numer
         Update();
 }
 
-void FeynmanKacSolver::Solve_OMP_Analytic(Eigen::Vector2d X0, unsigned int numero_trayectorias, double discretizacion_temporal,
-        double rho, BVP Problema, Nudo nudo, Interfaz interfaz){
+void FeynmanKacSolver::Solve_OMP_Analytic(Nudo & nudo, unsigned int numero_trayectorias, double discretizacion_temporal,
+    double rho, BVP Problema, Interfaz interfaz){
+    if(nudo.frontera){
+        nudo.B = Problema.g.Evalua(nudo.posicion_cartesiana);
+    }else{
         N = 0;
         for(int i = 0; i < 30; i++) sums[i] = 0;
-        Simulacion_OMP(X0,numero_trayectorias,discretizacion_temporal,rho,Problema);
+        Simulacion_OMP(nudo.posicion_cartesiana, numero_trayectorias,discretizacion_temporal,rho,Problema);
         Reduce_Analytic(Problema, numero_trayectorias, nudo, interfaz);
         Update(nudo);
+    }
 }
+        

@@ -46,6 +46,7 @@ void Malla::Construye_Cuadrado(std::vector<double> PARAMETROS_DOMINIO,int NUMERO
                     Interfaces.push_back(interfaz_centinela);
                 }
             }
+            numero_total_nudos = nudo_centinela;
             double d_centinel;
             vecinos["SW"] = -numero_subdominios_lado -1;
             vecinos["W"] = -numero_subdominios_lado;

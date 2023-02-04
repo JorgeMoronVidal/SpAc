@@ -32,6 +32,8 @@ inline double Atan270(Eigen::VectorXd point){
 }
 class Nudo{
     public:
+    //True si el nudo está sobre la frontera, false en cualquier otro caso
+    bool frontera;
     //Posiciones cartesiana, angular y dentro de la matriz.
     Eigen::Vector2d posicion_cartesiana;
     double posicion_angular;
