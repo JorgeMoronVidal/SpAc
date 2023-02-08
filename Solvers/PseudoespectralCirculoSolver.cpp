@@ -237,7 +237,7 @@ void PseudoespectralCirculoSolver::Resuelve(BVP Problema, std::vector<Nudo> & nu
         file_x << interpolador.valores.x;
         file_y << interpolador.valores.y;
         file_sol.close(); file_x.close(); file_y.close();
-        getchar();*/
+        getchar();*/ 
     //Resuelve las columnas de G asociadas a los nudos sobre la interfaz dada
     int n = nudos_periferia.size()/2;
     rhs_pseudospectral = rhs_pseudospectral*0.0;

@@ -6,13 +6,14 @@
                 "${workspaceFolder}/**",
                 "/usr/include/c++/11",
                 "/usr/include/x86_64-linux-gnu/c++/11",
-                "/usr/lib/gcc/x86_64-linux-gnu/12/include/"
+                "/usr/lib/gcc/x86_64-linux-gnu/12/include/",
+                "/usr/lib/x86_64-linux-gnu/openmpi/include"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang",
+            "compilerPath": "/usr/bin/mpic++",
             "cStandard": "c17",
             "cppStandard": "c++14",
-            "intelliSenseMode": "linux-clang-x64"
+            "intelliSenseMode": "gcc-x64"
         }
     ],
     "version": 4

@@ -261,4 +261,104 @@ void Interfaz::Update_G(double Y, Eigen::Vector2d X, BVP problema, std::map<int,
     }
     //std::cout << theta <<" "<<  aux  << " " << problema.u.Evalua(X) << std::endl;
     //getchar();
-} 
+}
+void Interfaz::Resetea(void){
+    posicion_centro.resize(2);
+    posicion_centro[0] = -1;
+    posicion_centro[1] = -1;
+    ubicacion = -1;
+    interior = -10;
+    parametros_dominio.resize(0);
+    Psi.resize(0,0);
+    iPsi.resize(0,0);
+    centro[0] = 0.0;
+    centro[1] = 0.0;
+    radio = 0.0;
+    c2 = -1.0;
+    nudos_circunferencia.clear();
+    nudos_interior.clear();
+}
+void Interfaz::Empaca(std::vector<int> & Interfaz_int, std::vector<double> & Interfaz_double, std::vector<Nudo> &Interfaz_nudos){
+    int aux_index;
+    Interfaz_int.resize(9);
+    Interfaz_int[0] = es_perimeter ? 1:0;
+    Interfaz_int[1] = posicion_centro[0];
+    Interfaz_int[2] = posicion_centro[1];
+    Interfaz_int[3] = ubicacion;
+    Interfaz_int[4] = interior;
+    Interfaz_int[5] = parametros_dominio.size();
+    Interfaz_int[6] = Psi.cols();
+    Interfaz_int[7] = nudos_circunferencia.size();
+    Interfaz_int[8] = nudos_interior.size();
+    Interfaz_double.resize(4 + Interfaz_int[5] + 2*(Interfaz_int[6]*Interfaz_int[6]));
+    Interfaz_double[0] = centro[0];
+    Interfaz_double[1] = centro[1];
+    Interfaz_double[2] = radio;
+    Interfaz_double[3] = c2;
+    aux_index = 4;
+    for(int i = 0;i < parametros_dominio.size();i ++){
+        Interfaz_double[aux_index] = parametros_dominio[i];
+        aux_index ++;
+    }
+    for(int i = 0; i < Interfaz_int[6]; i++){
+        for(int j = 0; j < Interfaz_int[6]; j++){
+            Interfaz_double[aux_index] = Psi(i,j);
+            aux_index ++;
+        }
+    }
+    for(int i = 0; i < Interfaz_int[6]; i++){
+        for(int j = 0; j < Interfaz_int[6]; j++){
+            Interfaz_double[aux_index] = iPsi(i,j);
+            aux_index ++;
+        }
+    }
+    Interfaz_nudos.resize(Interfaz_int[7] + Interfaz_int[8]);
+    for(int i = 0; i < Interfaz_int[7]; i++){
+        Interfaz_nudos[i] = nudos_circunferencia[i];
+    }
+    for(int i = Interfaz_int[7];i < Interfaz_int[8] + Interfaz_int[7]; i++){
+
+        Interfaz_nudos[i] = nudos_interior[i-Interfaz_int[7]];
+    }
+}
+void Interfaz::Desempaca(std::vector<int> & Interfaz_int, std::vector<double> & Interfaz_double, std::vector<Nudo> &Interfaz_nudos){
+    int aux_index;
+    es_perimeter = (Interfaz_int[0] == 1) ? true:false;
+    posicion_centro.resize(2);
+    posicion_centro[0] = Interfaz_int[1];
+    posicion_centro[1] = Interfaz_int[2];
+    ubicacion = Interfaz_int[3];
+    interior = Interfaz_int[4];
+    parametros_dominio.resize(Interfaz_int[5]);
+    Psi.resize(Interfaz_int[6],Interfaz_int[6]);
+    iPsi.resize(Interfaz_int[6],Interfaz_int[6]);
+    centro[0] = Interfaz_double[0];
+    centro[1] = Interfaz_double[1];
+    radio = Interfaz_double[2];
+    c2 = Interfaz_double[3];
+    aux_index = 4;
+    for(int i = 0;i < parametros_dominio.size();i ++){
+        parametros_dominio[i] = Interfaz_double[aux_index];
+        aux_index ++;
+    }
+    for(int i = 0; i < Interfaz_int[6]; i++){
+        for(int j = 0; j < Interfaz_int[6]; j++){
+            Psi(i,j) = Interfaz_double[aux_index];
+            aux_index ++;
+        }
+    }
+    for(int i = 0; i < Interfaz_int[6]; i++){
+        for(int j = 0; j < Interfaz_int[6]; j++){
+            iPsi(i,j) = Interfaz_double[aux_index];
+            aux_index ++;
+        }
+    }
+    nudos_circunferencia.resize(Interfaz_int[7]);
+    for(int i = 0; i < Interfaz_int[7]; i++){
+        nudos_circunferencia[i] = Interfaz_nudos[i];
+    }
+    nudos_interior.resize(Interfaz_int[8]);
+    for(int i = 0; i < Interfaz_int[8]; i++){
+        nudos_interior[i] = Interfaz_nudos[Interfaz_int[7]+i];
+    }
+}

@@ -47,6 +47,7 @@ void Malla::Construye_Cuadrado(std::vector<double> PARAMETROS_DOMINIO,int NUMERO
                 }
             }
             numero_total_nudos = nudo_centinela;
+            sistema.Reset_Lista_Adyacencia(numero_total_nudos);
             double d_centinel;
             vecinos["SW"] = -numero_subdominios_lado -1;
             vecinos["W"] = -numero_subdominios_lado;
@@ -74,8 +75,11 @@ void Malla::Construye_Cuadrado(std::vector<double> PARAMETROS_DOMINIO,int NUMERO
                             }
                         }
                     }
-                }   
+                }
+            sistema.Anadir_Lista_Adyacencia(*it_inter);
             }
+        sistema.Purgar_Lista_Adyacencia();
+        sistema.Inicializa_CSR();
 }
 bool Malla::Es_vecino(std::vector<Interfaz>::iterator it_inter, std::map<std::string, int>::iterator it_vecinos){
      if ((it_vecinos->first).find('N')<(it_vecinos->first).length()){
@@ -91,6 +95,20 @@ bool Malla::Es_vecino(std::vector<Interfaz>::iterator it_inter, std::map<std::st
         if ((*it_inter).posicion_centro[0] == 0) return false;
      }
      return true;
+}
+void Malla::Escribe_Posiciones(BVP problema){
+    std::ofstream file_position("knot_position.txt");
+    file_position.precision(8);
+    file_position.setf(std::ios::fixed, std::ios::scientific);
+    for(std::vector<Interfaz>::iterator it_inter = Interfaces.begin();
+    it_inter !=  Interfaces.end(); it_inter ++){
+        for(std::vector<Nudo>::iterator it_nudo = (*it_inter).nudos_circunferencia.begin();
+        it_nudo != (*it_inter).nudos_circunferencia.end(); it_nudo ++){
+            file_position <<(*it_nudo).indice_global <<" "<< (*it_nudo).posicion_cartesiana(0) << " " << 
+            (*it_nudo).posicion_cartesiana(1) <<" " << problema.u.Evalua((*it_nudo).posicion_cartesiana) << std::endl;
+        }
+    }
+    file_position.close();
 }
 Malla::~Malla(void){
     Interfaces.resize(0);
