@@ -7,13 +7,15 @@
                 "/usr/include/c++/11",
                 "/usr/include/x86_64-linux-gnu/c++/11",
                 "/usr/lib/gcc/x86_64-linux-gnu/12/include/",
-                "/usr/lib/x86_64-linux-gnu/openmpi/include"
+                "/usr/lib/x86_64-linux-gnu/openmpi/include",
+                "/opt/intel/oneapi/mkl/2023.0.0/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/mpic++",
             "cStandard": "c17",
             "cppStandard": "c++14",
-            "intelliSenseMode": "gcc-x64"
+            "intelliSenseMode": "gcc-x64",
+            "configurationProvider": "ms-vscode.makefile-tools"
         }
     ],
     "version": 4

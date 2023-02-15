@@ -34,14 +34,15 @@
 #Output files
 *.txt
 *.csv
-
-#Old Suff
-Old_SpAc/*
-Antiguo_SpAc/*
+*.fig
+*.jpg
 
 #Matlab files
 *.m
 
 #VisualStudioThings
-
 *.json
+
+MUMPS_test.cpp
+MUMPS_5.5.1
+test_mpi

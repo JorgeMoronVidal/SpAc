@@ -6,6 +6,7 @@
 #include"Solvers/FeynmanKacSolver.hpp"
 #include"Solvers/PseudoespectralCirculoSolver.hpp"
 #include"Mesh/Malla.hpp"
+#include"Solvers/SistemaLinealSolverMUMPS.hpp"
 #include <ctime>
 int main(){
     Coeficiente_Escalar u,g,c,f,f_2,g_2;
@@ -62,6 +63,7 @@ int main(){
                 t1 = clock();
                 std::cout<< "Tiempo resolviendo nudo " << (*it_nudo).indice_global << " " << 
                 double(t1-t0)/CLOCKS_PER_SEC << std::endl;
+                mesh.sistema.Actualiza_GB(*(it_nudo));
             }
         } else {
             t0 = clock();
@@ -74,45 +76,16 @@ int main(){
             t1 = clock();
             std::cout<< "Tiempo resolviendo interfaz [" << (*it_inter).posicion_centro[0]<<
             ", " <<(*it_inter).posicion_centro[1] << "] " << double(t1-t0)/CLOCKS_PER_SEC << std::endl;
+            mesh.sistema.Actualiza_GB(*(it_inter));
         }
     }
-    std::ofstream file_G("G.txt"), file_B("B.txt");
-    file_G.precision(8);
-    file_G.setf(std::ios::fixed, std::ios::scientific);
-    file_B.precision(8);
-    file_B.setf(std::ios::fixed, std::ios::scientific);
-    std::vector<int> diagonal;
-    std::vector<double> B_vector;
-    diagonal.resize(mesh.numero_total_nudos,0);
-    B_vector.resize(mesh.numero_total_nudos,0.0);
-    for(std::vector<Interfaz>::iterator it_inter = mesh.Interfaces.begin();
-    it_inter !=  mesh.Interfaces.end(); it_inter ++){
-        for(std::vector<Nudo>::iterator it_nudo = (*it_inter).nudos_interior.begin();
-        it_nudo != (*it_inter).nudos_interior.end(); it_nudo ++){
-            for(std::map<int,double>::iterator it_G = (*it_nudo).G.begin();
-            it_G != (*it_nudo).G.end(); it_G++){
-                file_G << (*it_nudo).indice_global <<" "<< it_G->first << " "<< it_G->second << std::endl;
-            }
-            B_vector[(*it_nudo).indice_global] += (*it_nudo).B;
-            diagonal[(*it_nudo).indice_global] ++;
-        }
+    mesh.sistema.Escribe_GB_COO();
+    mesh.Escribe_Posiciones(bvp);
+    SistemaLinealSolver LUSolver;
+    LUSolver.MUMPS_LU(mesh.sistema,1,1,1E-10,1);
+    for(int i = 0; i < mesh.sistema.n_filas; i++){
+            std::cout << LUSolver.solucion[i] << std::endl;
     }
-    for(int i = 0; i < diagonal.size(); i++){
-        file_G << i <<" "<< i << " "<< diagonal[i] << std::endl;
-        file_B << B_vector[i] << std::endl;
-    }
-    file_G.close();
-    file_B.close();
-    std::ofstream file_position("knot_position.txt");
-    for(std::vector<Interfaz>::iterator it_inter = mesh.Interfaces.begin();
-    it_inter !=  mesh.Interfaces.end(); it_inter ++){
-        for(std::vector<Nudo>::iterator it_nudo = (*it_inter).nudos_circunferencia.begin();
-        it_nudo != (*it_inter).nudos_circunferencia.end(); it_nudo ++){
-            file_position <<(*it_nudo).indice_global <<" "<< (*it_nudo).posicion_cartesiana(0) << " " << 
-            (*it_nudo).posicion_cartesiana(1) <<" " << bvp.u.Evalua((*it_nudo).posicion_cartesiana) << std::endl;
-        }
-    }
-    file_position.close();
 }
    /*FeynmanKacSolver solver;
     Eigen::Vector2d X0;

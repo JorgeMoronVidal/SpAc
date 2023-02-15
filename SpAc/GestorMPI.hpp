@@ -1,5 +1,8 @@
+#ifndef CLASEGESTORMPI
+#define CLASEGESTORMPI
 #include <mpi.h>
 #include "../Mesh/Interfaz.hpp"
+#include "../Mesh/SistemaLineal.hpp"
 enum EtiquetasMPI{
     peticion_trabajo,
     anuncio_trabajo,
@@ -7,8 +10,10 @@ enum EtiquetasMPI{
     double_nudo_FKAC,
     int_interfaz,
     double_interfaz,
-    int_nudo_interfaz,
-    double_nudo_interfaz
+    int_sistema,
+    double_sistema,
+    int_nudo_interfaz = 1000,
+    double_nudo_interfaz = 1001
 };
 enum Trabajos{
     nuevo_trabajo,
@@ -46,9 +51,6 @@ class GestorMPI{
         MPI_Comm_size(MPI_COMM_WORLD, &numprocesos);
         MPI_Comm_rank(MPI_COMM_WORLD, &id);
         servidor = numprocesos-1;
-        if(id == servidor){
-
-        }
     };
     template <typename T>
     inline MPI_Status Envia_vector(std::vector<T> & vector, int destino, int etiqueta){
@@ -62,6 +64,15 @@ class GestorMPI{
         MPI_Get_count(&status, MPIUtils::typeMPI<T>(), &numero_elementos);
         vector.resize(numero_elementos);
         MPI_Recv(&vector[0],vector.size(),MPIUtils::typeMPI<T>(),status.MPI_SOURCE,etiqueta,MPI_COMM_WORLD,& status);
+        return status;
+    };
+    template<typename T>
+    inline MPI_Status Recibe_vector(std::vector<T> & vector, int origen, int etiqueta){
+        MPI_Probe(origen, etiqueta, MPI_COMM_WORLD, &status);
+        int numero_elementos;
+        MPI_Get_count(&status, MPIUtils::typeMPI<T>(), &numero_elementos);
+        vector.resize(numero_elementos);
+        MPI_Recv(&vector[0],vector.size(),MPIUtils::typeMPI<T>(),origen,etiqueta,MPI_COMM_WORLD,& status);
         return status;
     };
     inline MPI_Status Pide_trabajo(){
@@ -84,14 +95,17 @@ class GestorMPI{
         nudo.Empaca(Nudo_int,Nudo_double);
         Envia_vector<int>(Nudo_int,destino,etiqueta_int);
         Envia_vector<double>(Nudo_double,destino,etiqueta_double);
+        Nudo_int.clear();
+        Nudo_double.clear();
         return status;
     };
-    inline MPI_Status Recibe_nudo(Nudo & nudo, int etiqueta_int, int etiqueta_double){
+    inline MPI_Status Recibe_nudo(Nudo & nudo, int origen, int etiqueta_int, int etiqueta_double){
         std::vector<int> Nudo_int;
         std::vector<double> Nudo_double;
-        Recibe_vector<int>(Nudo_int ,etiqueta_int);
-        Recibe_vector<double>(Nudo_double, etiqueta_double);
+        Recibe_vector<int>(Nudo_int,origen,etiqueta_int);
+        Recibe_vector<double>(Nudo_double,origen,etiqueta_double);
         nudo.Desempaca(Nudo_int, Nudo_double);
+        return status;
     };
     inline MPI_Status Envia_interfaz(Interfaz & interfaz, int destino){
         std::vector<int> Interfaz_int;
@@ -101,22 +115,72 @@ class GestorMPI{
         Envia_vector<int>(Interfaz_int,destino, int_interfaz);
         Envia_vector<double>(Interfaz_double, destino, double_interfaz);
         for(int i = 0; i < Interfaz_int[7] + Interfaz_int[8]; i++){
-            Envia_nudo(Interfaz_nudo[i],destino,int_nudo_interfaz,double_nudo_interfaz);
+            Envia_nudo(Interfaz_nudo[i],destino,int_nudo_interfaz + i,double_nudo_interfaz + i);
         }
+        return status;
     };
-    inline MPI_Status Recibe_interfaz(Interfaz & interfaz){
+    inline MPI_Status Recibe_interfaz(Interfaz & interfaz, int origen){
         std::vector<int> Interfaz_int;
         std::vector<double> Interfaz_double;
         std::vector<Nudo> Interfaz_nudo;
-        Recibe_vector<int>(Interfaz_int,int_interfaz);
-        Recibe_vector<double>(Interfaz_double,double_interfaz);
+        Recibe_vector<int>(Interfaz_int,origen,int_interfaz);
+        Recibe_vector<double>(Interfaz_double,status.MPI_SOURCE,double_interfaz);
         Interfaz_nudo.resize(Interfaz_int[7] + Interfaz_int[8]);
         for(int i = 0; i < Interfaz_int[7] + Interfaz_int[8]; i++){
-            Recibe_nudo(Interfaz_nudo[i],int_nudo_interfaz,double_nudo_interfaz);
+            Recibe_nudo(Interfaz_nudo[i],origen,int_nudo_interfaz + i,double_nudo_interfaz +i);
         }
         interfaz.Desempaca(Interfaz_int,Interfaz_double,Interfaz_nudo);
+        return status;
+    };
+    MPI_Status Envia_Sistema_Lineal(SistemaLineal & sistema, int destino){
+        std::vector<int> sistema_int;
+        std::cout << int(3+sistema.n_filas + sistema.nnz) << std::endl;
+        sistema_int.resize(int(3+sistema.n_filas + sistema.nnz));
+        std::vector<double> sistema_double;
+        sistema_double.resize(int(sistema.n_filas + sistema.nnz));
+        sistema_int[0] = sistema.n_filas;
+        sistema_int[1] = sistema.nnz;
+        int i;
+        for(i = 0; i < sistema.n_filas; i++){
+            sistema_int[2+i] = sistema.G_i[i];
+            sistema_double[i] = sistema.B[i];
+        }
+        sistema_int[2+i] = sistema.G_i[i];
+        for(i = 0; i <sistema.nnz; i++){
+            sistema_int[3+sistema.n_filas+i] = sistema.G_j[i];
+            sistema_double[sistema.n_filas+i] = sistema.G_ij[i];
+        }
+        std::cout << "Hola \n";
+        Envia_vector<int>(sistema_int,destino,int_sistema);
+        Envia_vector<double>(sistema_double,destino,double_sistema);
+        return status;
+    };
+    MPI_Status Recibe_Sistema_Lineal(SistemaLineal & sistema, int origen){
+        std::vector<int> sistema_int;
+        std::vector<double> sistema_double;
+        Recibe_vector<int>(sistema_int,origen,int_sistema);
+        Recibe_vector<double>(sistema_double,origen,double_sistema);
+        sistema.n_filas = sistema_int[0];
+        sistema.nnz = sistema_int[1];
+        sistema.B = new double[sistema.n_filas];
+        sistema.u = new double[sistema.n_filas];
+        sistema.G_i = new int[sistema.n_filas +1];
+        sistema.G_j = new int[sistema.nnz];
+        sistema.G_ij = new double[sistema.nnz];
+        int i;
+        for(i = 0; i < sistema.n_filas; i++){
+            sistema.G_i[i] = sistema_int[2+i];
+            sistema.B[i] = sistema_double[i];
+        }
+        sistema.G_i[i] = sistema_int[2+i];
+        for(i = 0; i <sistema.nnz; i++){
+            sistema.G_j[i] = sistema_int[3+sistema.n_filas+i];
+            sistema.G_ij[i] = sistema_double[sistema.n_filas+i];
+        }
+        return status;
     };
     void Finaliza(){
         MPI_Finalize();
     };
 };
+#endif

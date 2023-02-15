@@ -52,7 +52,7 @@ void SistemaLineal::Inicializa_CSR(void){
             if(lista_adyacencia[fila][columna_nz] == fila){
                 G_ij[counter_j] = diagonal[fila];
             }else{
-                G_ij[counter_j] = 0.0;
+                G_ij[counter_j] = 1.0E-23;
             }
             counter_j ++;
         }
@@ -107,6 +107,19 @@ void SistemaLineal::Escribe_GB_COO(void){
     }
     file_B.close();
     file_G.close();
+}
+
+void SistemaLineal::Convierte_COO(std::vector<int> &G_i_COO, std::vector<int>&G_j_COO, std::vector<double> &G_ij_COO){
+    G_i_COO.resize(nnz); 
+    G_j_COO.resize(nnz); 
+    G_ij_COO.resize(nnz); 
+    for(int fila = 0; fila < n_filas; fila ++){
+        for(int j= G_i[fila]; j< G_i[fila+1]; j++){
+            G_i_COO[j] = fila;
+            G_j_COO[j] = G_j[j];
+            G_ij_COO[j] = G_ij[j];
+        }
+    }
 }
 void SistemaLineal::Escribe_GB_CSR(void){
     std::ofstream file_Gi("G_i.txt"), file_Gj("G_j.txt"), file_Gij("G_ij.txt"),file_B("B.txt");

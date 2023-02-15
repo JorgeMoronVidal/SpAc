@@ -7,10 +7,15 @@
 #include"Solvers/PseudoespectralCirculoSolver.hpp"
 #include"Mesh/Malla.hpp"
 #include"SpAc/GestorMPI.hpp"
-
+#include"Solvers/SistemaLinealSolverGMRES.hpp"
+void LeeArchivoConfiguracion(char file[256], int & N, int &Nr, int &Nt, int &Nl, int &maxIterGMRES, int &nparicionesMETIS, int &superposicionMETIS,
+                             double & h, double & theta_0, double &superposicion, double & SW, double & NE, double & tol_GMRES);
+void EscribeConfiguracion(int  N, int Nr, int Nt, int Nl, int maxIterGMRES, int nparicionesMETIS, int superposicionMETIS,
+                             double  h, double  theta_0, double superposicion, double  SW, double  NE, double  tol_GMRES);
 int main(int argc, char *argv[]){
     GestorMPI gestor;
     gestor.Inicializa(argc,argv);
+    double init_time = MPI_Wtime();
     Coeficiente_Escalar u,g,c,f,f_2,g_2;
     Coeficiente_Vectorial b,F;
     Coeficiente_Matricial sigma;
@@ -21,6 +26,10 @@ int main(int argc, char *argv[]){
     sigma.Inicializa(Monegros_sigma);
     b.Inicializa(Monegros_b);
     F.Inicializa(Monegros_F);
+    int N = 1000, Nr = 43, Nt = 44, Nl = 20, maxIterGMRES = 100, nparticionesMETIS = 32, superposicionMETIS = 2;
+    double h = 1E-02, t0 = 0.12, superposicion = 1.2, SW = -100.0,NE = 100.0, toleranciaGMRES = 1E-08;
+    /*LeeArchivoConfiguracion("configuracion.txt",N,Nr,Nt,Nl,maxIterGMRES,nparticionesMETIS,superposicionMETIS,
+    h,t0,superposicion,SW,NE,toleranciaGMRES);*/
     BVP bvp;
     bvp.u = u;
     bvp.g = g;
@@ -36,18 +45,17 @@ int main(int argc, char *argv[]){
     parametros_circulo[2] = 0.0;
     std::vector<double> parametros_rectangulo;
     parametros_rectangulo.resize(4);
-    parametros_rectangulo[0] = -50.0;
-    parametros_rectangulo[1] = -50.0;
-    parametros_rectangulo[2] = 50.0;
-    parametros_rectangulo[3] = 50.0;
+    parametros_rectangulo[0] = SW;
+    parametros_rectangulo[1] = SW;
+    parametros_rectangulo[2] = NE;
+    parametros_rectangulo[3] = NE;
     bvp.frontera_dominio.Inicializa(parametros_rectangulo,Rectangulo,Stopping,Stopping);
     bvp.frontera_subdominio.Inicializa(parametros_circulo,Circulo,Stopping,Stopping);
     Nudo aux_nudo;
     Interfaz aux_interfaz;
-    int N = 1000, Nr = 43, Nt = 44, Nl = 10;
-    double h = 1E-03, t0 = 0.12, superposicion = 1.2;
     if(gestor.id == gestor.servidor){
-        //std::cout << __FILE__ << " " << __LINE__ << " Soy el servidor\n";
+        EscribeConfiguracion(N,Nr,Nt,Nl,maxIterGMRES,nparticionesMETIS,superposicionMETIS,h
+        ,t0,superposicion,SW,NE,toleranciaGMRES);
         Eigen::Vector2d aux;
         Malla mesh;
         std::map<std::string,double> c2;
@@ -75,6 +83,10 @@ int main(int argc, char *argv[]){
                     //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                     aux_indice_local ++;
                     if(aux_indice_local == (*it_interfaz).nudos_interior.size()){
+                        printf("{G_ij,B_i} for Interface [%d %d] computed in %.2f s\n",
+                        (*it_interfaz).posicion_centro[0],(*it_interfaz).posicion_centro[1],
+                         MPI_Wtime() - init_time);
+                         init_time = MPI_Wtime();
                         it_interfaz ++;
                         aux_indice_local = 0;
                     } 
@@ -83,17 +95,21 @@ int main(int argc, char *argv[]){
                     gestor.trabajo[0] = interfaz_pseudoespectral;
                     gestor.Anuncia_trabajo();
                     gestor.Envia_interfaz((*it_interfaz),gestor.status.MPI_SOURCE);
+                    printf("{G_ij,B_i} for Interface [%d %d] computed in %.2f s\n",
+                        (*it_interfaz).posicion_centro[0],(*it_interfaz).posicion_centro[1],
+                        MPI_Wtime() - init_time);
+                    init_time = MPI_Wtime();
                     it_interfaz ++;
                 }
                 break;
             case nudo_resuelto:
                 //std::cout << __FILE__ << " " << __LINE__ << std::endl;
-                gestor.Recibe_nudo(aux_nudo,int_nudo_FKAC, double_nudo_FKAC);
+                gestor.Recibe_nudo(aux_nudo,gestor.status.MPI_SOURCE,int_nudo_FKAC, double_nudo_FKAC);
                 mesh.sistema.Actualiza_GB(aux_nudo);
                 break;
             case interfaz_resuelta:
                 //std::cout << __FILE__ << " " << __LINE__ << std::endl;
-                gestor.Recibe_interfaz(aux_interfaz);
+                gestor.Recibe_interfaz(aux_interfaz,gestor.status.MPI_SOURCE);
                 mesh.sistema.Actualiza_GB(aux_interfaz);
                 break;
             default:
@@ -110,16 +126,17 @@ int main(int argc, char *argv[]){
             case nuevo_trabajo:
                     //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                     gestor.trabajo[0] = termina_construccion_G_B;
+                    std::cout << "Terminada construccion G_B " << gestor.status.MPI_SOURCE << std::endl;
                     gestor.Anuncia_trabajo();
                     nodes_finished ++;
                 break;
             case nudo_resuelto:
-                gestor.Recibe_nudo(aux_nudo,int_nudo_FKAC, double_nudo_FKAC);
+                gestor.Recibe_nudo(aux_nudo,gestor.status.MPI_SOURCE,int_nudo_FKAC, double_nudo_FKAC);
                 mesh.sistema.Actualiza_GB(aux_nudo);
                 //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                 break;
             case interfaz_resuelta:
-                gestor.Recibe_interfaz(aux_interfaz);
+                gestor.Recibe_interfaz(aux_interfaz, gestor.status.MPI_SOURCE);
                 mesh.sistema.Actualiza_GB(aux_interfaz);
                 //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                 break;
@@ -131,6 +148,13 @@ int main(int argc, char *argv[]){
         }while(nodes_finished != gestor.servidor);
         mesh.sistema.Escribe_GB_COO();
         mesh.Escribe_Posiciones(bvp);
+        init_time = MPI_Wtime();
+        for(int i = 0; i < gestor.servidor; i++){
+            gestor.Envia_Sistema_Lineal(mesh.sistema,i);
+        }
+        SistemaLinealSolverGMRES GMRESSolver;
+        GMRESSolver.Resuelve(mesh.sistema,gestor,maxIterGMRES,toleranciaGMRES,nparticionesMETIS,superposicionMETIS);
+        printf("Solution computed in %.2f s\n", MPI_Wtime() - init_time);
     }else{
         //std::cout << __FILE__ << " " << __LINE__ << " Soy el trabajador " << gestor.id << std::endl;
         PseudoespectralCirculoSolver solver_ps;
@@ -144,8 +168,9 @@ int main(int argc, char *argv[]){
             switch (gestor.trabajo[0])
             {
             case nudo_FKAC:
-                gestor.Recibe_interfaz(aux_interfaz);
-                gestor.Recibe_nudo(aux_nudo,int_nudo_FKAC, double_nudo_FKAC);
+                gestor.Recibe_interfaz(aux_interfaz,gestor.servidor);
+                //std::cout << "Nudo recibido " << MPI_Wtime() - init_time << std::endl;
+                gestor.Recibe_nudo(aux_nudo, gestor.servidor, int_nudo_FKAC, double_nudo_FKAC);
                 parametros_circulo[0] = aux_interfaz.radio;
                 parametros_circulo[1] = aux_interfaz.centro(0);
                 parametros_circulo[2] = aux_interfaz.centro(1);
@@ -156,8 +181,8 @@ int main(int argc, char *argv[]){
                 gestor.Envia_nudo(aux_nudo, gestor.servidor, int_nudo_FKAC, double_nudo_FKAC);
                 break;
             case interfaz_pseudoespectral:
-                //std::cout << "Resuelve interfaz";
-                gestor.Recibe_interfaz(aux_interfaz);
+                //std::cout << "Interfaz recibida " << MPI_Wtime() - init_time << std::endl;
+                gestor.Recibe_interfaz(aux_interfaz,gestor.servidor);
                 solver_ps.Inicializa(aux_interfaz.centro,aux_interfaz.radio,
                 aux_interfaz.nudos_circunferencia.size(),Nr,
                 aux_interfaz.nudos_circunferencia[0].posicion_angular
@@ -169,6 +194,7 @@ int main(int argc, char *argv[]){
                 gestor.Envia_interfaz(aux_interfaz,gestor.servidor);
                 break;
             case termina_construccion_G_B:
+            std::cout << "Terminada construccion G_B " << gestor.id << std::endl;
                 break;
             default:
                 std::cout << __FILE__ << " " << __LINE__ << " ERROR\n";
@@ -177,6 +203,242 @@ int main(int argc, char *argv[]){
             }
     
         }while(gestor.trabajo[0] != termina_construccion_G_B);
+        SistemaLineal sistema;
+        gestor.Recibe_Sistema_Lineal(sistema,gestor.servidor);
+        std::cout <<"Sistema Lineal Recibido " << gestor.id << std::endl;
+
+        SistemaLinealSolverGMRES GMRESSolver;
+        GMRESSolver.Resuelve(sistema,gestor,maxIterGMRES,toleranciaGMRES,nparticionesMETIS,superposicionMETIS);
     }
     gestor.Finaliza();
+}
+
+void LeeArchivoConfiguracion(char file[256] , int & N, int &Nr, int &Nt, int &Nl, int &maxIterGMRES, int &nparicionesMETIS, int &superposicionMETIS,
+    double & h, double & theta_0, double &superposicion, double & SW, double & NE, double & tol_GMRES){
+    std::ifstream myfile(file);
+    std::string line, cent;
+    if (myfile)  // same as: if (myfile.good())
+    {   while (getline( myfile, line )){  // same as: while (getline( myfile, line ).good())
+            if (line.c_str()[0]!='%') //First of all we check if the line is a comment
+            { 
+                cent.clear(); //Centinel needs to be empty
+                for(std::string::iterator it = line.begin(); it != line.end(); it++){
+                //Loop over all the characters of the line
+                    if(*it != ' ' && *it != '\t'){
+                    //If it is not a space nor a tabulation then we concatenate the term to cent
+                        cent += *it;
+                    }
+                    else{
+                    //If we get a space or a tabulation then we check the string
+                        if(cent == "N_trayectorias="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            N = atoi(cent.c_str());
+                            break;
+                        }
+                        if(cent == "N_teta="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            Nt = atoi(cent.c_str());
+                            break;
+                        }
+                        if(cent == "N_radio="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            Nr = atoi(cent.c_str());
+                            break;
+                        }
+                        if(cent == "N_lado="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            Nl = atoi(cent.c_str());
+                            break;
+                        }
+                        if(cent == "MaxIGMRES="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            maxIterGMRES = atoi(cent.c_str());
+                            break;
+                        }
+                        if(cent == "NparMETIS="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            nparicionesMETIS = atoi(cent.c_str());
+                            break;
+                        }
+                        if(cent == "NparMETIS="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            nparicionesMETIS = atoi(cent.c_str());
+                            break;
+                        }
+                        if(cent == "NsupMETIS="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            superposicionMETIS= atoi(cent.c_str());
+                            break;
+                        }
+                        if(cent == "h="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            h = atof(cent.c_str());
+                            break;
+                        }
+                        if(cent == "teta_0="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            theta_0 = atof(cent.c_str());
+                            break;
+                        }
+                        if(cent == "superposicion_subdominios="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            superposicion = atof(cent.c_str());
+                            break;
+                        }
+                        if(cent == "SW="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            SW = atof(cent.c_str());
+                            break;
+                        }
+                        if(cent == "NE="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            NE = atof(cent.c_str());
+                            break;
+                        }
+                        if(cent == "tol_GMRES="){
+                        while( *it == ' ' or *it == '\t'){
+                                        it++;
+
+                            }
+                            cent.clear();
+                            while( it != line.end()){
+                                cent += *it;
+                                it++;
+                            }
+                            tol_GMRES = atof(cent.c_str());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        myfile.close();
+    } else {
+        std::cout << "WARNING: Cofiguration file was not found\n";
+        std::cout << "Make sure it exist a configuration.txt file in the program's directory.\n";
+    }
+}
+void EscribeConfiguracion(int  N, int Nr, int Nt, int Nl, int maxIterGMRES, int nparticionesMETIS, int superposicionMETIS,
+    double  h, double  theta_0, double superposicion, double  SW, double  NE, double  tol_GMRES){
+printf("********************************SPAC SOLVER********************************\n");
+printf("**********************************ver 0.1**********************************\n");
+printf("***************************** Jorge Moron-Vidal****************************\n");
+printf("*****************************jmoron@math.uc3m.es***************************\n");
+printf("***************************************************************************\n\n");
+printf("***********************Domain Decomposition Parameters*********************\n\n");
+printf("Domain:[%.1f %.1f]^2    # of subdomains = [%dX%d]    Domain superposition %.0f %%\n",
+      SW,NE,Nl,Nl,100*superposicion-100);
+printf("# knots per circunference: %d   # knots per radious %d  initial \theta = %.3f\n",
+      Nt,Nr,theta_0);
+printf("\n");
+printf("****************************Feynman-Kac Parameters************************\n\n");
+printf("Time discretization: %e   # trayectories = %d  \n",
+      h,N);
+printf("\n");
+printf("*******************************GMRES Parameters***************************\n\n");
+printf("Max. Iterartions: %d   # METIS patitions = %d   METIS superposition = %d \n",
+      maxIterGMRES,nparticionesMETIS,superposicionMETIS);
 }

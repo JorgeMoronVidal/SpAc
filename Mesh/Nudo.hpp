@@ -150,9 +150,10 @@ class Nudo{
             int_index ++;
             double_index ++;
         }
-        if(int_index != Nudo_int.size()) std::cout << __FILE__ << " " << __LINE__ <<  "int_index "<<
+        if(int_index != Nudo_int.size()) std::cout << __FILE__ << " " << __LINE__ <<  " int_index "<<
         int_index << "Nudo_int.size() " << Nudo_int.size() << std::endl;
-        if(double_index != Nudo_double.size()) std::cout << __FILE__ << " " << __LINE__ << " ERROR\n";
+        if(double_index != Nudo_double.size()) std::cout << __FILE__ << " " << __LINE__ <<" double_index " <<
+        double_index << " Nudo_double.size() " << Nudo_double.size() << std::endl; " ERROR\n";
     }
 };
 #endif

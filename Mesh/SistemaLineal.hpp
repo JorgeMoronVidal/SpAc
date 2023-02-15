@@ -18,6 +18,7 @@ class SistemaLineal{
     void Inicializa_CSR(void);
     void Actualiza_GB(Nudo &nudo);
     void Actualiza_GB(Interfaz &interfaz);
+    void Convierte_COO(std::vector<int> &G_i_COO, std::vector<int>&G_j_COO, std::vector<double> &G_ij_COO);
     void Escribe_GB_COO(void);
     void Escribe_GB_CSR(void);
     ~SistemaLineal();
