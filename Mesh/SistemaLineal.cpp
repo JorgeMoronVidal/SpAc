@@ -94,7 +94,7 @@ void SistemaLineal::Actualiza_GB(Interfaz &interfaz){
     }
 }
 void SistemaLineal::Escribe_GB_COO(void){
-    std::ofstream file_G("G.txt"), file_B("B.txt");
+    std::ofstream file_G("Output/G.txt"), file_B("Output/B.txt");
     file_G.precision(8);
     file_G.setf(std::ios::fixed, std::ios::scientific);
     file_B.precision(8);
