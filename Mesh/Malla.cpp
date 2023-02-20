@@ -97,8 +97,8 @@ bool Malla::Es_vecino(std::vector<Interfaz>::iterator it_inter, std::map<std::st
      return true;
 }
 void Malla::Escribe_Posiciones(BVP problema){
-    std::ofstream file_position("knot_position.txt");
-    file_position.precision(8);
+    std::ofstream file_position("Output/knot_position.txt");
+    file_position.precision(12);
     file_position.setf(std::ios::fixed, std::ios::scientific);
     for(std::vector<Interfaz>::iterator it_inter = Interfaces.begin();
     it_inter !=  Interfaces.end(); it_inter ++){

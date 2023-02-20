@@ -81,11 +81,11 @@ int main(){
     }
     mesh.sistema.Escribe_GB_COO();
     mesh.Escribe_Posiciones(bvp);
-    SistemaLinealSolver LUSolver;
+    /*SistemaLinealSolver LUSolver;
     LUSolver.MUMPS_LU(mesh.sistema,1,1,1E-10,1);
     for(int i = 0; i < mesh.sistema.n_filas; i++){
             std::cout << LUSolver.solucion[i] << std::endl;
-    }
+    }*/
 }
    /*FeynmanKacSolver solver;
     Eigen::Vector2d X0;

@@ -10,8 +10,9 @@
 #include"Solvers/SistemaLinealSolverGMRES.hpp"
 void LeeArchivoConfiguracion(char file[256], int & N, int &Nr, int &Nt, int &Nl, int &maxIterGMRES, int &nparicionesMETIS, int &superposicionMETIS,
                              double & h, double & theta_0, double &superposicion, double & SW, double & NE, double & tol_GMRES);
-void EscribeConfiguracion(int  N, int Nr, int Nt, int Nl, int maxIterGMRES, int nparicionesMETIS, int superposicionMETIS,
-                             double  h, double  theta_0, double superposicion, double  SW, double  NE, double  tol_GMRES);
+void EscribeConfiguracion(int  N, int Nr, int Nt, int Nl, int maxIterGMRES, int nparticionesMETIS, int superposicionMETIS,
+                          int number_processes, int number_OMP_THREADS, double  h, double  theta_0, double superposicion, 
+                          double  SW, double  NE, double  tol_GMRES);
 int main(int argc, char *argv[]){
     GestorMPI gestor;
     gestor.Inicializa(argc,argv);
@@ -28,8 +29,10 @@ int main(int argc, char *argv[]){
     F.Inicializa(Monegros_F);
     int N = 1000, Nr = 43, Nt = 44, Nl = 20, maxIterGMRES = 100, nparticionesMETIS = 32, superposicionMETIS = 2;
     double h = 1E-02, t0 = 0.12, superposicion = 1.2, SW = -100.0,NE = 100.0, toleranciaGMRES = 1E-08;
-    /*LeeArchivoConfiguracion("configuracion.txt",N,Nr,Nt,Nl,maxIterGMRES,nparticionesMETIS,superposicionMETIS,
-    h,t0,superposicion,SW,NE,toleranciaGMRES);*/
+    char filename[256];
+    sprintf(filename,"configuration");
+    LeeArchivoConfiguracion(filename,N,Nr,Nt,Nl,maxIterGMRES,nparticionesMETIS,superposicionMETIS,
+    h,t0,superposicion,SW,NE,toleranciaGMRES);
     BVP bvp;
     bvp.u = u;
     bvp.g = g;
@@ -51,17 +54,22 @@ int main(int argc, char *argv[]){
     parametros_rectangulo[3] = NE;
     bvp.frontera_dominio.Inicializa(parametros_rectangulo,Rectangulo,Stopping,Stopping);
     bvp.frontera_subdominio.Inicializa(parametros_circulo,Circulo,Stopping,Stopping);
+    std::vector<double> time(gestor.numprocesos);
     Nudo aux_nudo;
     Interfaz aux_interfaz;
     if(gestor.id == gestor.servidor){
-        EscribeConfiguracion(N,Nr,Nt,Nl,maxIterGMRES,nparticionesMETIS,superposicionMETIS,h
-        ,t0,superposicion,SW,NE,toleranciaGMRES);
+        std::ofstream time_file("Output/times.csv");
+        EscribeConfiguracion(N,Nr,Nt,Nl,maxIterGMRES,nparticionesMETIS,superposicionMETIS,
+        gestor.numprocesos,omp_get_num_threads(), h ,t0,superposicion,SW,NE,toleranciaGMRES);
         Eigen::Vector2d aux;
         Malla mesh;
         std::map<std::string,double> c2;
         c2["esquina"] = 1.5; //Cond Psi = 1.02E+10
         c2["lado"] = 1.1; //Cond Psi = 1.11E+10
+        double principio = MPI_Wtime();
+        time[gestor.id] = principio;
         mesh.Construye_Cuadrado(parametros_rectangulo,Nl,superposicion,t0,Nt,bvp,c2);
+        time_file <<"Construye_Cuadrado,"<<gestor.id<<","<<MPI_Wtime()-time[gestor.id]<<std::endl;
         std::vector<Interfaz>::iterator it_interfaz = mesh.Interfaces.begin();
         int aux_indice_local = 0;
         do{
@@ -71,6 +79,7 @@ int main(int argc, char *argv[]){
             switch (gestor.trabajo[0])
             {
             case nuevo_trabajo:
+                time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                 if((*it_interfaz).es_perimeter){
                     //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                     gestor.trabajo[0] = nudo_FKAC;
@@ -83,10 +92,8 @@ int main(int argc, char *argv[]){
                     //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                     aux_indice_local ++;
                     if(aux_indice_local == (*it_interfaz).nudos_interior.size()){
-                        printf("{G_ij,B_i} for Interface [%d %d] computed in %.2f s\n",
-                        (*it_interfaz).posicion_centro[0],(*it_interfaz).posicion_centro[1],
-                         MPI_Wtime() - init_time);
-                         init_time = MPI_Wtime();
+                        printf("{G_ij,B_i} for Interface [%d %d] computed s\n",
+                        (*it_interfaz).posicion_centro[0],(*it_interfaz).posicion_centro[1]);
                         it_interfaz ++;
                         aux_indice_local = 0;
                     } 
@@ -95,22 +102,27 @@ int main(int argc, char *argv[]){
                     gestor.trabajo[0] = interfaz_pseudoespectral;
                     gestor.Anuncia_trabajo();
                     gestor.Envia_interfaz((*it_interfaz),gestor.status.MPI_SOURCE);
-                    printf("{G_ij,B_i} for Interface [%d %d] computed in %.2f s\n",
-                        (*it_interfaz).posicion_centro[0],(*it_interfaz).posicion_centro[1],
-                        MPI_Wtime() - init_time);
-                    init_time = MPI_Wtime();
+                    printf("Interface [%d %d] sent\n",
+                        (*it_interfaz).posicion_centro[0],(*it_interfaz).posicion_centro[1]);
                     it_interfaz ++;
                 }
                 break;
             case nudo_resuelto:
                 //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                 gestor.Recibe_nudo(aux_nudo,gestor.status.MPI_SOURCE,int_nudo_FKAC, double_nudo_FKAC);
+                time_file <<"Knot_FKAC,"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
+                time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                 mesh.sistema.Actualiza_GB(aux_nudo);
+                time_file <<"Update_GB,"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
+                time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                 break;
             case interfaz_resuelta:
                 //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                 gestor.Recibe_interfaz(aux_interfaz,gestor.status.MPI_SOURCE);
+                time_file <<"Interface_int,"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
+                time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                 mesh.sistema.Actualiza_GB(aux_interfaz);
+                time_file <<"Update_GB,"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
                 break;
             default:
                 std::cout << __FILE__ << " " << __LINE__  << " " << gestor.trabajo[0]<< " ERROR\n";
@@ -126,18 +138,26 @@ int main(int argc, char *argv[]){
             case nuevo_trabajo:
                     //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                     gestor.trabajo[0] = termina_construccion_G_B;
-                    std::cout << "Terminada construccion G_B " << gestor.status.MPI_SOURCE << std::endl;
+                    time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                     gestor.Anuncia_trabajo();
                     nodes_finished ++;
                 break;
             case nudo_resuelto:
                 gestor.Recibe_nudo(aux_nudo,gestor.status.MPI_SOURCE,int_nudo_FKAC, double_nudo_FKAC);
+                time_file <<"Knot_FKAC,"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
+                time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                 mesh.sistema.Actualiza_GB(aux_nudo);
+                time_file <<"Update_GB,"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
+                time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                 //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                 break;
             case interfaz_resuelta:
                 gestor.Recibe_interfaz(aux_interfaz, gestor.status.MPI_SOURCE);
+                time_file <<"Interfaz_int,"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
+                time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                 mesh.sistema.Actualiza_GB(aux_interfaz);
+                time_file <<"Update_GB,"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
+                time[gestor.status.MPI_SOURCE] = MPI_Wtime();
                 //std::cout << __FILE__ << " " << __LINE__ << std::endl;
                 break;
             default:
@@ -146,15 +166,22 @@ int main(int argc, char *argv[]){
                 break;
             }
         }while(nodes_finished != gestor.servidor);
+        time[gestor.id] = MPI_Wtime();
         mesh.sistema.Escribe_GB_COO();
         mesh.Escribe_Posiciones(bvp);
-        init_time = MPI_Wtime();
+        time_file <<"Writing_IFiles,"<<gestor.id<<","<<MPI_Wtime()-time[gestor.id]<<std::endl;
+        time[gestor.id] = MPI_Wtime();
         for(int i = 0; i < gestor.servidor; i++){
+            time_file <<"Waiting_for_LS"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
             gestor.Envia_Sistema_Lineal(mesh.sistema,i);
         }
+        time_file <<"Sending_LS,"<<gestor.id<<","<<MPI_Wtime()-time[gestor.id]<<std::endl;
         SistemaLinealSolverGMRES GMRESSolver;
+        time[gestor.id] = MPI_Wtime();
         GMRESSolver.Resuelve(mesh.sistema,gestor,maxIterGMRES,toleranciaGMRES,nparticionesMETIS,superposicionMETIS);
-        printf("Solution computed in %.2f s\n", MPI_Wtime() - init_time);
+        time_file <<"Solving_LS,"<<gestor.id<<","<<MPI_Wtime()-time[gestor.id]<<std::endl;
+        time_file <<"Total,"<<gestor.id<<","<<MPI_Wtime()-principio<<std::endl;
+        time_file.close();
     }else{
         //std::cout << __FILE__ << " " << __LINE__ << " Soy el trabajador " << gestor.id << std::endl;
         PseudoespectralCirculoSolver solver_ps;
@@ -297,20 +324,6 @@ void LeeArchivoConfiguracion(char file[256] , int & N, int &Nr, int &Nt, int &Nl
                         if(cent == "NparMETIS="){
                         while( *it == ' ' or *it == '\t'){
                                         it++;
-
-                            }
-                            cent.clear();
-                            while( it != line.end()){
-                                cent += *it;
-                                it++;
-                            }
-                            nparicionesMETIS = atoi(cent.c_str());
-                            break;
-                        }
-                        if(cent == "NparMETIS="){
-                        while( *it == ' ' or *it == '\t'){
-                                        it++;
-
                             }
                             cent.clear();
                             while( it != line.end()){
@@ -359,7 +372,7 @@ void LeeArchivoConfiguracion(char file[256] , int & N, int &Nr, int &Nt, int &Nl
                             theta_0 = atof(cent.c_str());
                             break;
                         }
-                        if(cent == "superposicion_subdominios="){
+                        if(cent == "supsub="){
                         while( *it == ' ' or *it == '\t'){
                                         it++;
 
@@ -422,12 +435,16 @@ void LeeArchivoConfiguracion(char file[256] , int & N, int &Nr, int &Nt, int &Nl
     }
 }
 void EscribeConfiguracion(int  N, int Nr, int Nt, int Nl, int maxIterGMRES, int nparticionesMETIS, int superposicionMETIS,
-    double  h, double  theta_0, double superposicion, double  SW, double  NE, double  tol_GMRES){
+                          int number_processes, int number_OMP_THREADS, double  h, double  theta_0, double superposicion, 
+                          double  SW, double  NE, double  tol_GMRES){
 printf("********************************SPAC SOLVER********************************\n");
 printf("**********************************ver 0.1**********************************\n");
 printf("***************************** Jorge Moron-Vidal****************************\n");
 printf("*****************************jmoron@math.uc3m.es***************************\n");
 printf("***************************************************************************\n\n");
+printf("*******************************MPI Parameters******************************\n\n");
+printf("        Number of proceses = %d      Number of threads = %d   \n",
+       number_processes, number_OMP_THREADS);
 printf("***********************Domain Decomposition Parameters*********************\n\n");
 printf("Domain:[%.1f %.1f]^2    # of subdomains = [%dX%d]    Domain superposition %.0f %%\n",
       SW,NE,Nl,Nl,100*superposicion-100);

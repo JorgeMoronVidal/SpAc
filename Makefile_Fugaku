@@ -1,0 +1,39 @@
+# CC : C compiler
+
+CC = mpiFCCpx -SSL2 -SCALAPACK
+
+
+FLAGS =  -O3 -Kfast,SVE,openmp -DNDEBUG
+
+INC = -I$(HOME)/MUMPS_5.5.1_2/include \
+-I/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/metis-5.1.0-eb47pt4jqv3kmdcx2e2mnuxhmvwkmw4x/include \
+-I/vol0004/apps/oss/spack/opt/spack/linux-rhel8-a64fx/fj-4.8.1/eigen-3.4.0-p27fkppfepdmxuslsmqszgwunkgtziv4/include \
+-I/vol0004/apps/oss/spack/opt/spack/linux-rhel8-a64fx/fj-4.8.1/boost-1.80.0-zc5pwgcmj3ddn65a7pea6m3xv2xfzr5q/include
+
+
+LIB = -L/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/metis-5.1.0-eb47pt4jqv3kmdcx2e2mnuxhmvwkmw4x/lib -lmetis \
+-L$(HOME)/MUMPS_5.5.1_2/lib -ldmumps -lmumps_common -lpord
+
+
+# $(wildcard *.cpp /xxx/xxx/*.cpp): get all .cpp files from the current directory and dir "/xxx/xxx/"
+SRCS := $(wildcard */*.cpp)
+# $(patsubst %.cpp,%.o,$(SRCS)): substitute all ".cpp" file name strings to ".o" file name strings
+OBJS := $(patsubst %.cpp,%.o,$(SRCS))
+
+all: main class
+
+class:$(OBJS)
+        @echo $(OBJS)
+
+%.o : %.cpp
+        $(CC) -w  $(FLAGS) $(INC) $(LIB) -c $< -o $@
+
+main_parallel:
+        $(CC) --linkfortran -w -g   $(FLAGS) $(INC)  main_test_mpi.cpp -o main_parallel $(LIB) $(OBJS)
+main_serial:
+        FCCpx --linkfortran -w -g   $(FLAGS) $(INC)  main_test_serial.cpp -o main_serial $(LIB) $(OBJS)
+clean_class:
+        rm $(OBJS)
+
+clean:
+        rm main_parallel

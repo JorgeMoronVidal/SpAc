@@ -122,7 +122,11 @@ void SistemaLineal::Convierte_COO(std::vector<int> &G_i_COO, std::vector<int>&G_
     }
 }
 void SistemaLineal::Escribe_GB_CSR(void){
-    std::ofstream file_Gi("G_i.txt"), file_Gj("G_j.txt"), file_Gij("G_ij.txt"),file_B("B.txt");
+    std::ofstream file_Gi("Output/G_i.txt"), file_Gj("Output/G_j.txt"), file_Gij("Output/G_ij.txt"),file_B("Output/B.txt");
+    file_Gij.precision(10);
+    file_Gij.setf(std::ios::fixed, std::ios::scientific);
+    file_B.precision(10);
+    file_B.setf(std::ios::fixed, std::ios::scientific);
     for(int fila = 0; fila < n_filas; fila ++){
         file_Gi << G_i[fila] << std::endl;
         file_B <<B[fila] << std::endl;

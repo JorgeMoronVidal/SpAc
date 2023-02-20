@@ -543,12 +543,14 @@ class SistemaLinealSolverGMRES{
 	      convert_time(t2_elapsed, t1_elapsed));
       fprintf(stderr, "%s %d MPI %.4e\n",  __FILE__, __LINE__,
 	      mpi_elapsed);
-      std::ofstream file_sol("solution_GMRES.txt");
+      std::ofstream file_sol("Output/solution_GMRES.txt");
+      file_sol.precision(12);
+      file_sol.setf(std::ios::fixed, std::ios::scientific);
       for (int i = 0; i < nrow; i++) {
         file_sol << sol[i] << std::endl;
         sistema.u[i] = sol[i];
       }
-    file_sol.close();
+      file_sol.close();
   }
   }
 };
