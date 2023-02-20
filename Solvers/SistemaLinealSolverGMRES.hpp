@@ -344,7 +344,7 @@ class SistemaLinealSolverGMRES{
       delete [] mask_work;
       char buff[256];
       for (int n = bparts; n < eparts; n++) {
-        sprintf(buff,"Debug\test_csr_%d.txt",n);
+        sprintf(buff,"Output/Debug/csr_%d.txt",n);
         std::ofstream ff(buff); 
         for (int i = 0; i < aa[n].nrow; i++) {
   	      for(int k = aa[n].ia[i]; k < aa[n].ia[i+1]; k ++){
