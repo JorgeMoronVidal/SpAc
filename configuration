@@ -1,13 +1,13 @@
-N_trayectorias= 50
+N_trayectorias= 500
 N_teta= 44
 N_radio= 43
-N_lado= 5
+N_lado= 40
 MaxIGMRES= 150
 NparMETIS= 8
 NsupMETIS= 1
 teta_0= 0.121
 h= 0.015
 supsub= 1.2
-SW= -25
-NE= 25
+SW= -200
+NE= 200
 tol_GMRES= 1E-12

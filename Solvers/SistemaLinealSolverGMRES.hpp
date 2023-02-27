@@ -1,5 +1,6 @@
 #ifndef SISTEMALINEALSOLVERGMRS
 #define SISTEMALINEALSOLVERGMRS
+#define MKL_LIB
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -9,15 +10,20 @@
 #include <map>
 #include <iostream>
 #include <fstream>
-#include <mkl.h>
 #include <metis.h>
 #include <list>
 #include "mpi.h"
 #include "../Mesh/SistemaLineal.hpp"
+#include "../SpAc/GestorMPI.hpp"
+#ifdef MKL_LIB
+#include <mkl.h>
 #include <mkl_cblas.h>
 #include <mkl_trans.h>
-#include "../SpAc/GestorMPI.hpp"
 typedef MKL_INT BLAS_INT;
+#else 
+#include <cblas.h>
+typedef BLAS_INT;
+#endif
 #include <time.h>
 typedef struct timespec elapsed_t;
 #include "dmumps_c.h"
@@ -54,8 +60,13 @@ double blas_l2norm(const int n, double *x, const int incX)
 }
 
 struct csr_matrix {
+  #ifdef MKL_LIB
   MKL_INT nrow, nnz;
   MKL_INT *ia, *ja;
+  #else
+  BLAS_INT nrow, nnz;
+  BLAS_INT *ia, *ja;
+  #endif
   double *coefs;
 };
 
@@ -148,9 +159,14 @@ class SistemaLinealSolverGMRES{
       int itmp, jtmp, ktmp;
       char fname[256], fname1[256];
       char buf[1024];
+      #ifdef MKL_LIB
       MKL_INT nrow = sistema.n_filas, nnz = sistema.nnz, nnz_orig;
-      int *ptrows, *indcols;
       MKL_INT *irow, *jcol;
+      #else
+      BLAS_INT nrow = sistema.n_filas, nnz = sistema.nnz, nnz_orig;
+      BLAS_INT *irow, *jcol;
+      #endif
+      int *ptrows, *indcols;
       double *val, *coefs, *tmps;
       double *scalrvec, *scallvec;
       csr_matrix a;
@@ -176,9 +192,9 @@ class SistemaLinealSolverGMRES{
       }
       fprintf(stderr, "%s %d : %d %d %d\n", __FILE__, __LINE__,
 	    mpi_id, bparts, eparts);
-      irow = new MKL_INT[nnz];
-      jcol = new MKL_INT[nnz];
-      val = new double[nnz];
+      //irow = new MKL_INT[nnz];
+      //jcol = new MKL_INT[nnz];
+      //val = new double[nnz];
       clock_t t0_cpu, t1_cpu, t2_cpu;
       elapsed_t t0_elapsed, t1_elapsed, t2_elapsed;
       elapsed_t t3_elapsed, t4_elapsed;
@@ -188,16 +204,30 @@ class SistemaLinealSolverGMRES{
       get_realtime(&t0_elapsed);
       a.nrow = nrow;
       a.nnz = nnz;
-      a.ia = new MKL_INT[nrow + 1];
-      a.ja = new MKL_INT[nnz];
-      a.coefs = new double[nnz];
-      for(int i = 0; i < nrow +1; i++){
+      #ifdef MKL_LIB
+      //a.ia = new MKL_INT[nrow + 1];
+      //a.ja = new MKL_INT[nnz];
+      #else
+      a.ia = new BLAS_INT[nrow + 1];
+      a.ja = new BLAS_INT[nnz];
+      #endif
+      //a.coefs = new double[nnz];
+      /*for(int i = 0; i < nrow +1; i++){
         a.ia[i] = sistema.G_i[i];
-      }
-      for(int i = 0; i < nnz; i++){
+      }*/
+      //delete sistema.G_i;
+      //sistema.G_i = new int[1];
+      /*for(int i = 0; i < nnz; i++){
         a.ja[i] = sistema.G_j[i];
         a.coefs[i] = sistema.G_ij[i];
       }
+      delete sistema.G_j;
+      sistema.G_j = new int[1];
+      delete sistema.G_ij;
+      sistema.G_ij = new double[1];*/
+      a.ia = sistema.G_i;
+      a.ja = sistema.G_j;
+      a.coefs = sistema.G_ij;
       idx_t *xadj, *adjcy, *part;
       xadj = new idx_t[nrow + 1];
       adjcy = new idx_t[nnz - nrow];
@@ -292,59 +322,61 @@ class SistemaLinealSolverGMRES{
       for (int i = 0; i < nrow; i++) {
         partition_unity[i] = 1.0 / partition_unity[i];
       }
-      for (int n = 0; n < nparts; n++) {
-      aa[n].nrow =submatrix_indx[n].size();
-      aa[n].ia = new int[aa[n].nrow + 1];
+      //if(gestor.id == gestor.servidor){
+     for (int n = bparts; n < eparts; n++) {
+        aa[n].nrow =submatrix_indx[n].size();
+        aa[n].ia = new int[aa[n].nrow + 1];
 
-      // inverse index to generate sub sparse matrix
-      for (int i = 0; i < aa[n].nrow; i++) {
-        itmps1[submatrix_indx[n][i]] = i;
-      }
-      for (int i = 0; i < nrow; i++) {
-        itmps0[i] = 0;
-      }
-      for (int i = 0; i < aa[n].nrow; i++) {
-        int ii = submatrix_indx[n][i];
-        for (int k = a.ia[ii]; k < a.ia[ii + 1]; k++) {
-	          if (mask[n][a.ja[k]] == 1) {
-	            itmps0[i]++;
-	          }
+        // inverse index to generate sub sparse matrix
+        for (int i = 0; i < aa[n].nrow; i++) {
+            itmps1[submatrix_indx[n][i]] = i;
         }
-      }
-      aa[n].ia[0] = 0;
-      for (int i = 0; i < aa[n].nrow; i++) {
-        aa[n].ia[i + 1] = aa[n].ia[i] + itmps0[i];
-      }
-      for (int i = 0; i < aa[n].nrow; i++) {
-        itmps0[i] = aa[n].ia[i];
-      }
-      aa[n].nnz = aa[n].ia[aa[n].nrow];
-      aa[n].ja = new int[aa[n].nnz];
-      aa[n].coefs = new double[aa[n].nnz];
-      for (int i = 0; i < aa[n].nrow; i++) {
-          int ii = submatrix_indx[n][i];
-          for (int k = a.ia[ii]; k < a.ia[ii + 1]; k++) {
-	          if (isSym) {
-	            if (mask[n][a.ja[k]] == 1 && a.ja[k] >= ii) {
-	              aa[n].ja[itmps0[i]] = itmps1[a.ja[k]];
-	              aa[n].coefs[itmps0[i]] = a.coefs[k];
-	              itmps0[i]++;
-	            }
-	          } else {
+        for (int i = 0; i < nrow; i++) {
+            itmps0[i] = 0;
+        }
+        for (int i = 0; i < aa[n].nrow; i++) {
+            int ii = submatrix_indx[n][i];
+            for (int k = a.ia[ii]; k < a.ia[ii + 1]; k++) {
 	            if (mask[n][a.ja[k]] == 1) {
-	              aa[n].ja[itmps0[i]] = itmps1[a.ja[k]];
-	              aa[n].coefs[itmps0[i]] = a.coefs[k];
-	              itmps0[i]++;
+	                itmps0[i]++;
 	            }
-	          }
-          }
+            }
         }
-      }
+        aa[n].ia[0] = 0;
+        for (int i = 0; i < aa[n].nrow; i++) {
+            aa[n].ia[i + 1] = aa[n].ia[i] + itmps0[i];
+        }
+        for (int i = 0; i < aa[n].nrow; i++) {
+            itmps0[i] = aa[n].ia[i];
+        }
+        aa[n].nnz = aa[n].ia[aa[n].nrow];
+        aa[n].ja = new int[aa[n].nnz];
+        aa[n].coefs = new double[aa[n].nnz];
+        for (int i = 0; i < aa[n].nrow; i++) {
+              int ii = submatrix_indx[n][i];
+            for (int k = a.ia[ii]; k < a.ia[ii + 1]; k++) {
+	              if (isSym) {
+	                if (mask[n][a.ja[k]] == 1 && a.ja[k] >= ii) {
+	                aa[n].ja[itmps0[i]] = itmps1[a.ja[k]];
+	                aa[n].coefs[itmps0[i]] = a.coefs[k];
+	                itmps0[i]++;
+	                }
+	            } else {
+	                if (mask[n][a.ja[k]] == 1) {
+	                aa[n].ja[itmps0[i]] = itmps1[a.ja[k]];
+	                aa[n].coefs[itmps0[i]] = a.coefs[k];
+	                itmps0[i]++;
+	                }
+	            }
+            }
+        }
+     }
       delete [] mask;
       delete [] mask_work;
+      #ifdef DEBUG_SUBMATRICES
       char buff[256];
       for (int n = bparts; n < eparts; n++) {
-        sprintf(buff,"Output/Debug/csr_%d.txt",n);
+        sprintf(buff,"Output/Debug/test_csr_%d.txt",n);
         std::ofstream ff(buff); 
         for (int i = 0; i < aa[n].nrow; i++) {
   	      for(int k = aa[n].ia[i]; k < aa[n].ia[i+1]; k ++){
@@ -353,6 +385,7 @@ class SistemaLinealSolverGMRES{
         }
         ff.close();
       }
+      #endif
       DMUMPS_STRUC_C *id = new DMUMPS_STRUC_C[nparts];
       /* When compiling with -DINTSIZE64, MUMPS_INT is 64-bit but MPI
       ilp64 versions may still require standard int for C interface. */
@@ -369,14 +402,14 @@ class SistemaLinealSolverGMRES{
         id[n].job = JOB_INIT;
         dmumps_c(&id[n]);
       }
-      double **x, **b;
+      /*double **x, **b;
       x = new double*[nparts];
       b = new double*[nparts];
       
-      for (int n = 0; n < nparts; n++) {
+      for (int n = bparts; n < eparts; n++) {
         x[n] = new double[aa[n].nrow];
         b[n] = new double[aa[n].nrow];
-      }
+      }*/
       for (int n = bparts; n < eparts; n++) {
         std::cout << __FILE__ <<" " << __LINE__ << " " << mpi_id <<" "<< n<< std::endl;
         id[n].icntl[0] = 6;
@@ -403,6 +436,7 @@ class SistemaLinealSolverGMRES{
 	          kk++;
           }
         }
+        delete  aa[n].ia, aa[n].ja, aa[n].coefs;
         /* Call the MUMPS package (analyse, factorization and solve). */
         id[n].job = 1;
         dmumps_c(&id[n]);
@@ -423,7 +457,7 @@ class SistemaLinealSolverGMRES{
         Hessenberg[i].resize(max_iter);
       }
       tmps = new double[nrow];
-      for(int i = 0; i < sistema.n_filas; i ++){
+      for(int i = 0; i < nrow; i ++){
           rhs[i] = sistema.B[i];
       }
       for (int i = 0; i < nrow; i++) {
@@ -444,6 +478,7 @@ class SistemaLinealSolverGMRES{
         }
       }
       get_realtime(&t3_elapsed);
+      //SUBSTITUTE THIS ALL REDUCE BY SEND RECEIVE 
       MPI_Allreduce(tmps, &rhs[0], nrow, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
       get_realtime(&t4_elapsed);
       mpi_elapsed += convert_time(t4_elapsed, t3_elapsed);
@@ -522,6 +557,13 @@ class SistemaLinealSolverGMRES{
         break;
       }
     } // loop : m
+    for (int n = bparts; n < eparts; n++){
+        id[n].comm_fortran= (MUMPS_INT) MPI_Comm_c2f(my_mpi_comm);
+        id[n].par = 1;
+        id[n].sym = 0;
+        id[n].job = JOB_END;
+        dmumps_c(&id[n]);
+    }
     if (mpi_id == gestor.servidor) {
       fprintf(stderr, "\n");
     }

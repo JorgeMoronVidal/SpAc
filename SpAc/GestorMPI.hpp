@@ -47,7 +47,7 @@ class GestorMPI{
         Inicializa(argc,argv);
     };
     void Inicializa(int argc, char *argv[]){
-        MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE,& tipo_multithreading);
+        MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED,& tipo_multithreading);
         MPI_Comm_size(MPI_COMM_WORLD, &numprocesos);
         MPI_Comm_rank(MPI_COMM_WORLD, &id);
         servidor = numprocesos-1;
@@ -74,6 +74,10 @@ class GestorMPI{
         vector.resize(numero_elementos);
         MPI_Recv(&vector[0],vector.size(),MPIUtils::typeMPI<T>(),origen,etiqueta,MPI_COMM_WORLD,& status);
         return status;
+    };
+    template<typename T>
+    void Retransmite_vector(std::vector<T> & vector, int origen){
+       MPI_Bcast(&vector[0],vector.size(), MPIUtils::typeMPI<T>(),origen, MPI_COMM_WORLD);
     };
     inline MPI_Status Pide_trabajo(){
         MPI_Send(trabajo,1,MPI_INT,servidor,peticion_trabajo,MPI_COMM_WORLD);
@@ -150,7 +154,6 @@ class GestorMPI{
             sistema_int[3+sistema.n_filas+i] = sistema.G_j[i];
             sistema_double[sistema.n_filas+i] = sistema.G_ij[i];
         }
-        std::cout << "Hola \n";
         Envia_vector<int>(sistema_int,destino,int_sistema);
         Envia_vector<double>(sistema_double,destino,double_sistema);
         return status;
@@ -178,6 +181,36 @@ class GestorMPI{
             sistema.G_ij[i] = sistema_double[sistema.n_filas+i];
         }
         return status;
+    };
+    void Retransmite_Sistema_Lineal(SistemaLineal & sistema, int origen){
+        int aux_int[2];
+        if(id == origen){
+            aux_int[0] = sistema.n_filas;
+            aux_int[1] = sistema.nnz;
+            MPI_Bcast(aux_int,2, MPI_INT,origen, MPI_COMM_WORLD);
+            MPI_Bcast(sistema.B,sistema.n_filas, MPI_DOUBLE,origen, MPI_COMM_WORLD);
+            //MPI_Bcast(sistema.u,sistema.n_filas, MPI_DOUBLE,origen, MPI_COMM_WORLD);
+            MPI_Bcast(sistema.G_ij,sistema.nnz, MPI_DOUBLE,origen, MPI_COMM_WORLD);
+            MPI_Bcast(sistema.G_i,sistema.n_filas + 1, MPI_INT,origen, MPI_COMM_WORLD);
+            MPI_Bcast(sistema.G_j,sistema.nnz, MPI_INT,origen, MPI_COMM_WORLD);
+            
+        }else{
+            MPI_Bcast(aux_int,2, MPI_INT,origen, MPI_COMM_WORLD);
+            sistema.n_filas = aux_int[0];
+            sistema.nnz = aux_int[1];
+            sistema.B = new double[sistema.n_filas];
+            sistema.u = new double[sistema.n_filas];
+            MPI_Bcast(sistema.B,sistema.n_filas, MPI_DOUBLE,origen, MPI_COMM_WORLD);
+            //MPI_Bcast(sistema.u,sistema.n_filas, MPI_DOUBLE,origen, MPI_COMM_WORLD);
+            sistema.G_ij = new double[sistema.nnz];
+            MPI_Bcast(sistema.G_ij,sistema.nnz, MPI_DOUBLE,origen, MPI_COMM_WORLD);
+            sistema.G_i = new int[sistema.n_filas + 1];
+            MPI_Bcast(sistema.G_i,sistema.n_filas + 1, MPI_INT,origen, MPI_COMM_WORLD);
+            sistema.G_j = new int[sistema.nnz];
+            MPI_Bcast(sistema.G_j,sistema.nnz, MPI_INT,origen, MPI_COMM_WORLD);
+        }
+        
+        
     };
     void Finaliza(){
         MPI_Finalize();

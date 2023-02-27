@@ -34,6 +34,9 @@ main: class
 main_serial:
 	g++ $(OPTC) main_test_serial.cpp -o main $(FLAGS) $(MUMPS) $(OBJS)
 
+main_cond:
+	icpc $(OPTC) main_cond.cpp -o main_cond $(FLAGS) $(OBJS) -lgfortran -qopenmp
+
 clean_class:
 	rm $(OBJS)
 

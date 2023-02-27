@@ -136,6 +136,32 @@ void SistemaLineal::Escribe_GB_CSR(void){
         }
     }
 }
+void SistemaLineal::Lee_GB_COO(void){
+    FILE *fp;
+    fp = fopen("Output/G_in.txt","r");
+    fscanf(fp, "%d %d", &nnz, &n_filas);
+    G_i = new int[n_filas + 1];
+    G_j = new int[nnz];
+    G_ij = new double[nnz];
+    int itmp , jtmp, ii, ii_filas;
+    double vtmp;
+    ii = 0;
+    ii_filas = 0;
+    G_i[ii_filas] = 0;
+    while(fscanf(fp, "%d %d %lf", &itmp, &jtmp, &vtmp) != EOF && ii != nnz){
+        //std::cout << itmp << " " << jtmp << " " << vtmp << std::endl;
+        //getchar();
+        if(ii_filas != itmp){
+            ii_filas = itmp;
+            G_i[ii_filas] = ii;
+        }
+        G_j[ii] = jtmp;
+        G_ij[ii] = vtmp;
+        ii ++;
+    }
+    G_i[n_filas] = nnz;
+    fclose(fp);
+}
 SistemaLineal::~SistemaLineal(){
     delete G_i,G_j,G_ij,B,u;
 }

@@ -192,7 +192,7 @@ void FeynmanKacSolver::Simulacion_OMP(Eigen::Vector2d X0, unsigned int numero_tr
                 outcome_tau[n] = estado_local;
                 threads[n] = omp_get_thread_num();
             }
-            #pragma omp barrier
+            //#pragma omp barrier
         }
     }
 void FeynmanKacSolver::Reduce_Analytic(BVP Problema, unsigned int numero_trayectorias){

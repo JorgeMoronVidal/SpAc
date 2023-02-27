@@ -7,7 +7,7 @@
 #include"Solvers/PseudoespectralCirculoSolver.hpp"
 #include"Mesh/Malla.hpp"
 #include"SpAc/GestorMPI.hpp"
-#include"Solvers/SistemaLinealSolverGMRES.hpp"
+#include"Solvers/SistemaLinealSolverGMRES_OMP.hpp"
 void LeeArchivoConfiguracion(char file[256], int & N, int &Nr, int &Nt, int &Nl, int &maxIterGMRES, int &nparicionesMETIS, int &superposicionMETIS,
                              double & h, double & theta_0, double &superposicion, double & SW, double & NE, double & tol_GMRES);
 void EscribeConfiguracion(int  N, int Nr, int Nt, int Nl, int maxIterGMRES, int nparticionesMETIS, int superposicionMETIS,
@@ -15,6 +15,7 @@ void EscribeConfiguracion(int  N, int Nr, int Nt, int Nl, int maxIterGMRES, int 
                           double  SW, double  NE, double  tol_GMRES);
 int main(int argc, char *argv[]){
     GestorMPI gestor;
+    int numero_hilos;
     gestor.Inicializa(argc,argv);
     double init_time = MPI_Wtime();
     Coeficiente_Escalar u,g,c,f,f_2,g_2;
@@ -27,7 +28,7 @@ int main(int argc, char *argv[]){
     sigma.Inicializa(Monegros_sigma);
     b.Inicializa(Monegros_b);
     F.Inicializa(Monegros_F);
-    int N = 1000, Nr = 43, Nt = 44, Nl = 20, maxIterGMRES = 100, nparticionesMETIS = 32, superposicionMETIS = 2;
+    int N = 100, Nr = 43, Nt = 44, Nl = 20, maxIterGMRES = 100, nparticionesMETIS = 4, superposicionMETIS = 2;
     double h = 1E-02, t0 = 0.12, superposicion = 1.2, SW = -100.0,NE = 100.0, toleranciaGMRES = 1E-08;
     char filename[256];
     sprintf(filename,"configuration");
@@ -60,7 +61,7 @@ int main(int argc, char *argv[]){
     if(gestor.id == gestor.servidor){
         std::ofstream time_file("Output/times.csv");
         EscribeConfiguracion(N,Nr,Nt,Nl,maxIterGMRES,nparticionesMETIS,superposicionMETIS,
-        gestor.numprocesos,omp_get_num_threads(), h ,t0,superposicion,SW,NE,toleranciaGMRES);
+        gestor.numprocesos,omp_get_max_threads(), h ,t0,superposicion,SW,NE,toleranciaGMRES);
         Eigen::Vector2d aux;
         Malla mesh;
         std::map<std::string,double> c2;
@@ -166,19 +167,22 @@ int main(int argc, char *argv[]){
                 break;
             }
         }while(nodes_finished != gestor.servidor);
+        time_file <<"G_and_B_computation,"<<gestor.id<<","<<MPI_Wtime()-principio<<std::endl;
         time[gestor.id] = MPI_Wtime();
-        mesh.sistema.Escribe_GB_COO();
+        //mesh.sistema.Escribe_GB_COO();
         mesh.Escribe_Posiciones(bvp);
         time_file <<"Writing_IFiles,"<<gestor.id<<","<<MPI_Wtime()-time[gestor.id]<<std::endl;
         time[gestor.id] = MPI_Wtime();
-        for(int i = 0; i < gestor.servidor; i++){
-            time_file <<"Waiting_for_LS"<<gestor.status.MPI_SOURCE<<","<<MPI_Wtime()-time[gestor.status.MPI_SOURCE]<<std::endl;
-            gestor.Envia_Sistema_Lineal(mesh.sistema,i);
-        }
+        gestor.Retransmite_Sistema_Lineal(mesh.sistema, gestor.servidor);
         time_file <<"Sending_LS,"<<gestor.id<<","<<MPI_Wtime()-time[gestor.id]<<std::endl;
+        numero_hilos = omp_get_num_threads();
+        MPI_Barrier(MPI_COMM_WORLD);
+        //omp_set_num_threads(1);
         SistemaLinealSolverGMRES GMRESSolver;
         time[gestor.id] = MPI_Wtime();
         GMRESSolver.Resuelve(mesh.sistema,gestor,maxIterGMRES,toleranciaGMRES,nparticionesMETIS,superposicionMETIS);
+        MPI_Barrier(MPI_COMM_WORLD);
+        //omp_set_num_threads(numero_hilos);
         time_file <<"Solving_LS,"<<gestor.id<<","<<MPI_Wtime()-time[gestor.id]<<std::endl;
         time_file <<"Total,"<<gestor.id<<","<<MPI_Wtime()-principio<<std::endl;
         time_file.close();
@@ -231,11 +235,15 @@ int main(int argc, char *argv[]){
     
         }while(gestor.trabajo[0] != termina_construccion_G_B);
         SistemaLineal sistema;
-        gestor.Recibe_Sistema_Lineal(sistema,gestor.servidor);
-        std::cout <<"Sistema Lineal Recibido " << gestor.id << std::endl;
-
+        gestor.Retransmite_Sistema_Lineal(sistema, gestor.servidor);
+        //std::cout <<"Sistema Lineal Recibido " << gestor.id << std::endl;
+        numero_hilos = omp_get_num_threads();
+        MPI_Barrier(MPI_COMM_WORLD);
+        //omp_set_num_threads(1);
         SistemaLinealSolverGMRES GMRESSolver;
         GMRESSolver.Resuelve(sistema,gestor,maxIterGMRES,toleranciaGMRES,nparticionesMETIS,superposicionMETIS);
+        MPI_Barrier(MPI_COMM_WORLD);
+        //omp_set_num_threads(numero_hilos);
     }
     gestor.Finaliza();
 }
